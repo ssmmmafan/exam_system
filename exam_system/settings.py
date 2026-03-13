@@ -37,6 +37,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'users',  # 确保这一行存在
+    'exams',
+    'questions',
 ]
 
 MIDDLEWARE = [
@@ -54,10 +57,11 @@ ROOT_URLCONF = 'exam_system.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [],  # 保持为空，Django会自动在app的templates文件夹中找模板
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
+                'django.template.context_processors.debug',
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
@@ -65,7 +69,6 @@ TEMPLATES = [
         },
     },
 ]
-
 WSGI_APPLICATION = 'exam_system.wsgi.application'
 
 
@@ -74,8 +77,16 @@ WSGI_APPLICATION = 'exam_system.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'exam_system_db',      # 刚才创建的数据库名
+        'USER': 'root',                  # MySQL用户名
+        'PASSWORD': 'zxcvbnm134',      # ⚠️ 这里写你安装时设置的密码
+        'HOST': '127.0.0.1',              # 或 localhost
+        'PORT': '3306',                    # MySQL默认端口
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+            'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
+        }
     }
 }
 
