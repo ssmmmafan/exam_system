@@ -38,8 +38,9 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'users',  # 确保这一行存在
-    'exams',
+    'exams',#考试应用
     'questions',
+    'students',   # 学生应用
 ]
 
 MIDDLEWARE = [
