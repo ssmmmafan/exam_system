@@ -4,5 +4,5 @@ from . import views
 app_name = 'exams'
 
 urlpatterns = [
-    # 教师端考试管理路由（后续添加）
+    path('exam/<int:exam_id>/select/', views.select_questions, name='select_questions'),
 ]

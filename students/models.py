@@ -32,7 +32,15 @@ class StudentExamRecord(models.Model):
     is_finished = models.BooleanField('是否完成', default=False)
     time_spent = models.IntegerField('用时(秒)', default=0)
     ip_address = models.GenericIPAddressField('IP地址', null=True, blank=True)
-
+    teacher_comments = models.TextField('教师评语', blank=True, null=True)
+    reviewed_at = models.DateTimeField('批改时间', null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_records'
+    )
     class Meta:
         db_table = 'student_exam_record'
         verbose_name = '考试记录'

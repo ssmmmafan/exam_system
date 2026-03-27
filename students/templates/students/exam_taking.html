@@ -1,132 +1,266 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>考试中 - {{ exam.title }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        .timer {
-            font-size: 24px;
-            font-weight: bold;
-            color: #dc3545;
-            background: white;
-            padding: 10px 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .question-card {
-            margin-bottom: 20px;
-            border-left: 4px solid #667eea;
-        }
-        .auto-save-hint {
-            color: #28a745;
-            font-size: 14px;
-            display: none;
-        }
-    </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="{% url 'students:dashboard' %}">📝 在线考试系统</a>
-            <div class="ms-auto">
-                <span class="timer" id="timer">加载中...</span>
+{% extends "students/base_student.html" %}
+
+{% block title %}考试中 - {{ exam.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timer {
+        font-size: 28px;
+        font-weight: bold;
+        color: #dc3545;
+        background: white;
+        padding: 10px 25px;
+        border-radius: 50px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        display: inline-block;
+    }
+    .timer.warning {
+        color: #ffc107;
+        animation: pulse 1s infinite;
+    }
+    .timer.danger {
+        color: #dc3545;
+        animation: pulse 0.5s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    .question-card {
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+        transition: transform 0.2s;
+    }
+    .question-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .question-content {
+        font-size: 16px;
+        line-height: 1.6;
+    }
+    .options-group {
+        margin-top: 15px;
+        margin-left: 20px;
+    }
+    .form-check {
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h4>{{ exam.title }}</h4>
+    <div class="text-center">
+        <div class="timer" id="timer">加载中...</div>
+        <small class="text-muted mt-1 d-block">剩余时间</small>
+    </div>
+</div>
+
+<form method="post" id="examForm">
+    {% csrf_token %}
+
+    {% for item in questions_with_content %}
+    <div class="card question-card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between">
+                <h6 class="card-title text-primary">第 {{ forloop.counter }} 题</h6>
+                <span class="badge bg-info">{{ item.eq.score }} 分</span>
             </div>
-        </div>
-    </nav>
 
-    <div class="container mt-3">
-        <div class="alert alert-info d-flex justify-content-between align-items-center">
-            <span><strong>{{ exam.title }}</strong> - 请认真作答</span>
-            <span class="auto-save-hint" id="saveHint">✅ 已自动保存</span>
-        </div>
+            {% if item.question %}
+            <!-- 显示题目内容 -->
+            <p class="card-text question-content mt-2">{{ item.question.content }}</p>
 
-        <form method="post" id="examForm">
-            {% csrf_token %}
-
-            {% for eq in exam_questions %}
-            <div class="card question-card">
-                <div class="card-body">
-                    <h6 class="card-title">第 {{ forloop.counter }} 题（{{ eq.score }}分）</h6>
-                    <p class="card-text">题目内容：{{ eq.question_id }}</p>
-
-                    <div class="mt-3">
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="question_{{ eq.question_id }}"
-                                   id="q{{ eq.question_id }}_a" value="A">
-                            <label class="form-check-label" for="q{{ eq.question_id }}_a">
-                                A. 选项A
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="question_{{ eq.question_id }}"
-                                   id="q{{ eq.question_id }}_b" value="B">
-                            <label class="form-check-label" for="q{{ eq.question_id }}_b">
-                                B. 选项B
-                            </label>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="question_{{ eq.question_id }}"
-                                   id="q{{ eq.question_id }}_c" value="C">
-                            <label class="form-check-label" for="q{{ eq.question_id }}_c">
-                                C. 选项C
-                            </label>
-                        </div>
+            <!-- 根据题型显示不同的输入方式 -->
+            {% if item.question.type == 'single' %}
+            <!-- 单选题 -->
+            <div class="options-group">
+                {% if item.question.options %}
+                    {% for key, value in item.question.options.items %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio"
+                               name="question_{{ item.eq.question_id }}"
+                               id="q{{ item.eq.question_id }}_{{ key }}"
+                               value="{{ key }}">
+                        <label class="form-check-label" for="q{{ item.eq.question_id }}_{{ key }}">
+                            {{ key }}. {{ value }}
+                        </label>
                     </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-warning">暂无选项，请联系教师</div>
+                {% endif %}
+            </div>
+
+            {% elif item.question.type == 'multiple' %}
+            <!-- 多选题 -->
+            <div class="options-group">
+                {% if item.question.options %}
+                    {% for key, value in item.question.options.items %}
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox"
+                               name="question_{{ item.eq.question_id }}"
+                               id="q{{ item.eq.question_id }}_{{ key }}"
+                               value="{{ key }}">
+                        <label class="form-check-label" for="q{{ item.eq.question_id }}_{{ key }}">
+                            {{ key }}. {{ value }}
+                        </label>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="alert alert-warning">暂无选项，请联系教师</div>
+                {% endif %}
+                <small class="text-muted">提示：多选题可选择多个答案</small>
+            </div>
+
+            {% elif item.question.type == 'judge' %}
+            <!-- 判断题 -->
+            <div class="options-group">
+                <div class="form-check">
+                    <input class="form-check-input" type="radio"
+                           name="question_{{ item.eq.question_id }}"
+                           id="q{{ item.eq.question_id }}_true"
+                           value="对">
+                    <label class="form-check-label" for="q{{ item.eq.question_id }}_true">
+                        ✓ 正确
+                    </label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio"
+                           name="question_{{ item.eq.question_id }}"
+                           id="q{{ item.eq.question_id }}_false"
+                           value="错">
+                    <label class="form-check-label" for="q{{ item.eq.question_id }}_false">
+                        ✗ 错误
+                    </label>
                 </div>
             </div>
-            {% endfor %}
 
-            <div class="d-flex justify-content-between mb-4">
-                <button type="submit" class="btn btn-primary">保存答案</button>
-                <a href="{% url 'students:submit_exam' exam.id %}" class="btn btn-success"
-                   onclick="return confirm('确定要提交试卷吗？提交后无法修改。')">提交试卷</a>
+            {% elif item.question.type == 'essay' %}
+            <!-- 简答题 -->
+            <div class="mt-3">
+                <textarea class="form-control"
+                          name="question_{{ item.eq.question_id }}"
+                          rows="4"
+                          placeholder="请输入你的答案..."></textarea>
+                <small class="text-muted">提示：简答题将由教师批改</small>
             </div>
-        </form>
+
+            {% else %}
+            <div class="alert alert-warning">未知题型</div>
+            {% endif %}
+
+            {% else %}
+            <!-- 题目不存在 -->
+            <div class="alert alert-danger">
+                题目不存在（ID: {{ item.eq.question_id }}），请联系教师
+            </div>
+            {% endif %}
+        </div>
     </div>
+    {% empty %}
+    <div class="alert alert-warning">
+        暂无试题，请联系教师。
+    </div>
+    {% endfor %}
 
-    <script>
-        // 倒计时功能
-        let timeLeft = {{ time_left|default:'0' }};
-        const timerElement = document.getElementById('timer');
-        const saveHint = document.getElementById('saveHint');
+    <div class="d-flex justify-content-between mb-4 mt-4">
+        <button type="submit" class="btn btn-primary px-4">
+            💾 保存答案
+        </button>
+        <a href="{% url 'students:submit_exam' exam.id %}"
+           class="btn btn-success px-4"
+           onclick="return confirm('确定要提交试卷吗？提交后无法修改。')">
+            📤 提交试卷
+        </a>
+    </div>
+</form>
 
-        function updateTimer() {
-            if (timeLeft <= 0) {
-                timerElement.textContent = '时间到！';
-                document.getElementById('examForm').submit();
-                return;
-            }
+<script>
+    // 获取服务器传递的剩余秒数
+    let timeLeft = {{ time_left|default:0 }};
+    const timerElement = document.getElementById('timer');
 
-            const minutes = Math.floor(timeLeft / 60);
-            const seconds = timeLeft % 60;
-            timerElement.textContent = `⏰ ${minutes}:${seconds.toString().padStart(2, '0')}`;
+    // 格式化时间函数
+    function formatTime(seconds) {
+        if (seconds <= 0) return '00:00';
 
-            timeLeft--;
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
 
-            // 最后5分钟变红
-            if (timeLeft < 300) {
-                timerElement.style.color = '#dc3545';
-            }
+        if (hours > 0) {
+            return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        } else {
+            return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+    }
+
+    // 更新倒计时显示
+    function updateTimer() {
+        if (timeLeft <= 0) {
+            timerElement.textContent = '00:00';
+            timerElement.classList.add('danger');
+            // 时间到自动提交
+            document.getElementById('examForm').submit();
+            return;
         }
 
-        setInterval(updateTimer, 1000);
+        // 更新显示
+        timerElement.textContent = formatTime(timeLeft);
 
-        // 自动保存功能
-        let autoSaveTimer;
-        document.querySelectorAll('input[type="radio"]').forEach(radio => {
-            radio.addEventListener('change', function() {
-                clearTimeout(autoSaveTimer);
-                autoSaveTimer = setTimeout(function() {
-                    document.getElementById('examForm').submit();
-                    saveHint.style.display = 'inline';
-                    setTimeout(() => {
-                        saveHint.style.display = 'none';
-                    }, 2000);
-                }, 3000);
+        // 根据剩余时间改变颜色
+        if (timeLeft < 300) { // 少于5分钟
+            timerElement.classList.add('danger');
+            timerElement.classList.remove('warning');
+        } else if (timeLeft < 600) { // 少于10分钟
+            timerElement.classList.add('warning');
+            timerElement.classList.remove('danger');
+        } else {
+            timerElement.classList.remove('warning', 'danger');
+        }
+
+        timeLeft--;
+    }
+
+    // 确保 timeLeft 是数字
+    timeLeft = parseInt(timeLeft);
+
+    // 每秒更新
+    setInterval(updateTimer, 1000);
+
+    // 立即执行一次
+    updateTimer();
+
+    // 自动保存功能
+    let autoSaveTimer;
+    const form = document.getElementById('examForm');
+
+    form.addEventListener('change', function() {
+        clearTimeout(autoSaveTimer);
+        autoSaveTimer = setTimeout(function() {
+            const formData = new FormData(form);
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(response => {
+                if (response.ok) {
+                    const toast = document.createElement('div');
+                    toast.className = 'alert alert-success position-fixed top-0 end-0 m-3';
+                    toast.style.zIndex = '9999';
+                    toast.innerHTML = '✅ 答案已自动保存';
+                    document.body.appendChild(toast);
+                    setTimeout(() => toast.remove(), 2000);
+                }
             });
-        });
-    </script>
-</body>
-</html>
+        }, 3000);
+    });
+</script>
+{% endblock %}

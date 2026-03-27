@@ -8,8 +8,8 @@ import re
 from .models import StudentProfile, StudentExamRecord
 from exams.models import Exam, ExamQuestion
 from django.core.cache import cache
-
-
+from django.utils import timezone
+from teachers.models import Question
 def register_view(request):
     """学生注册页面"""
     if request.user.is_authenticated:
@@ -204,12 +204,37 @@ def exam_taking(request, exam_id):
 
     now = timezone.now()
 
+    # 检查考试时间
     if now > exam.end_time:
         messages.error(request, '考试已结束，自动提交')
         return redirect('students:submit_exam', exam_id=exam.id)
 
+    # 获取所有试题
     exam_questions = ExamQuestion.objects.filter(exam=exam).order_by('order')
 
+    # ✅ 获取完整的题目信息
+    questions_with_content = []
+    for eq in exam_questions:
+        try:
+            question = Question.objects.get(id=eq.question_id)
+            questions_with_content.append({
+                'eq': eq,
+                'question': question,
+            })
+        except Question.DoesNotExist:
+            # 题目不存在的情况
+            questions_with_content.append({
+                'eq': eq,
+                'question': None,
+            })
+
+    # 计算剩余时间
+    time_delta = exam.end_time - now
+    remaining_seconds = int(time_delta.total_seconds())
+    if remaining_seconds < 0:
+        remaining_seconds = 0
+
+    # 处理POST请求（保存答案）
     if request.method == 'POST':
         answers = record.answers or {}
         for key, value in request.POST.items():
@@ -220,25 +245,27 @@ def exam_taking(request, exam_id):
         record.answers = answers
         record.save()
 
+        # 如果是AJAX请求，返回JSON
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return JsonResponse({'status': 'success', 'message': '已保存'})
 
         messages.success(request, '答案已保存')
+        return redirect('students:exam_taking', exam_id=exam.id)
 
     context = {
         'exam': exam,
         'record': record,
-        'exam_questions': exam_questions,
+        'questions_with_content': questions_with_content,
         'now': now,
-        'time_left': (exam.end_time - now).total_seconds(),
+        'time_left': remaining_seconds,
     }
     return render(request, 'students/exam_taking.html', context)
 
 
 @login_required
 def submit_exam(request, exam_id):
-    """提交考试"""
-    exam = get_object_or_404(Exam, id=exam_id)
+    """提交考试 - 自动批改客观题，简答题待批改"""
+    exam = get_object_or_404(Exam, id=exam_id, is_published=True)
     record = get_object_or_404(
         StudentExamRecord,
         student=request.user,
@@ -247,27 +274,61 @@ def submit_exam(request, exam_id):
     )
 
     if request.method == 'POST':
+        # 更新最终答案
         answers = record.answers or {}
         for key, value in request.POST.items():
             if key.startswith('question_'):
                 q_id = key.replace('question_', '')
                 answers[q_id] = value
 
-        # 简单计分（假设每题5分）
+        # 计算客观题分数
         total_score = 0
         exam_questions = ExamQuestion.objects.filter(exam=exam)
+        has_essay = False  # 👈 标记是否有简答题
 
         for eq in exam_questions:
-            if str(eq.question_id) in answers:
-                total_score += eq.score
+            try:
+                question = Question.objects.get(id=eq.question_id)
+                student_answer = answers.get(str(eq.question_id), '')
 
+                if question.type == 'single':
+                    if student_answer == question.answer:
+                        total_score += eq.score
+
+                elif question.type == 'multiple':
+                    student_set = set(student_answer.split(',')) if student_answer else set()
+                    correct_set = set(question.answer.split(','))
+                    if student_set == correct_set:
+                        total_score += eq.score
+
+                elif question.type == 'judge':
+                    if student_answer == question.answer:
+                        total_score += eq.score
+
+                elif question.type == 'essay':
+                    has_essay = True  # 👈 标记有简答题
+
+            except Question.DoesNotExist:
+                pass
+
+        # 更新记录
         record.answers = answers
-        record.score = total_score
         record.submit_time = timezone.now()
         record.is_finished = True
+
+        # ✅ 关键修复
+        if has_essay:
+            record.score = None  # 有简答题，设为 None（待批改）
+        else:
+            record.score = total_score  # 只有客观题，直接给分
+
         record.save()
 
-        messages.success(request, f'试卷提交成功！得分：{total_score}')
+        if has_essay:
+            messages.success(request, f'试卷提交成功！客观题得分：{total_score}，简答题待教师批改')
+        else:
+            messages.success(request, f'试卷提交成功！得分：{total_score}')
+
         return redirect('students:exam_result', record_id=record.id)
 
     context = {
@@ -275,36 +336,87 @@ def submit_exam(request, exam_id):
         'record': record,
     }
     return render(request, 'students/submit_confirm.html', context)
-
-
 @login_required
 def exam_result(request, record_id):
-    """考试成绩页"""
+    """考试成绩页 - 学生查看自己的成绩，教师可以查看任何学生"""
     record = get_object_or_404(
         StudentExamRecord,
         id=record_id,
-        student=request.user,
         is_finished=True
     )
+
+    # ✅ 权限检查：学生只能看自己的，教师可以看所有
+    if not request.user.is_staff and record.student != request.user:
+        messages.error(request, '你没有权限查看其他学生的成绩')
+        return redirect('students:dashboard')
 
     exam_questions = ExamQuestion.objects.filter(exam=record.exam).order_by('order')
 
     result_details = []
+    has_essay_unscored = False
+
     for eq in exam_questions:
-        student_answer = record.answers.get(str(eq.question_id), '')
-        is_correct = bool(student_answer)  # 简单判断：有答案就算对
+        try:
+            question = Question.objects.get(id=eq.question_id)
+            student_answer = record.answers.get(str(eq.question_id), '')
 
-        result_details.append({
-            'question_id': eq.question_id,
-            'student_answer': student_answer,
-            'score': eq.score if is_correct else 0,
-            'is_correct': is_correct,
-        })
+            if question.type == 'essay':
+                type_display = '简答题'
+                score_key = f'score_{eq.question_id}'
+                if score_key in record.answers:
+                    score = int(record.answers[score_key])
+                    is_scored = True
+                else:
+                    score = 0
+                    is_scored = False
+                    has_essay_unscored = True
 
+                result_details.append({
+                    'question_id': eq.question_id,
+                    'student_answer': student_answer,
+                    'correct_answer': question.answer,
+                    'score': score,
+                    'is_correct': False,
+                    'is_essay': True,
+                    'is_scored': is_scored,  # 👈 添加这个字段
+                    'type_display': type_display,
+                })
+
+            elif question.type == 'single':
+                is_correct = (student_answer == question.answer)
+                result_details.append({
+                    'question_id': eq.question_id,
+                    'student_answer': student_answer,
+                    'correct_answer': question.answer,
+                    'score': eq.score if is_correct else 0,
+                    'is_correct': is_correct,
+                    'is_essay': False,
+                    'is_scored': True,  # 客观题总是已批改
+                    'type_display': '单选题',
+                })
+
+            # ... 其他题型类似，添加 is_scored: True ...
+
+        except Question.DoesNotExist:
+            result_details.append({
+                'question_id': eq.question_id,
+                'student_answer': '题目不存在',
+                'correct_answer': '',
+                'score': 0,
+                'is_correct': False,
+                'is_essay': False,
+                'is_scored': False,
+                'type_display': '未知',
+            })
+    total_score_display = record.score if record.score is not None else '待批改'
     context = {
         'record': record,
         'exam': record.exam,
         'result_details': result_details,
         'total_possible': sum(eq.score for eq in exam_questions),
+        'has_essay_unscored': has_essay_unscored,
+        'total_score_display': total_score_display,
     }
     return render(request, 'students/exam_result.html', context)
+
+

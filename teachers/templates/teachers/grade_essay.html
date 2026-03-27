@@ -1,0 +1,58 @@
+{% extends "teachers/base_teacher.html" %}
+
+{% block title %}批改试卷 - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">📝 批改试卷</h4>
+    </div>
+    <div class="card-body">
+        <h5>{{ exam.title }}</h5>
+        <p>学生：{{ record.student.username }} | 提交时间：{{ record.submit_time|date:'Y-m-d H:i' }}</p>
+        <hr>
+
+        <form method="post">
+            {% csrf_token %}
+            
+            {% for eq in essay_questions %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <strong>简答题 {{ forloop.counter }}</strong> (满分 {{ eq.max_score }} 分)
+                </div>
+                <div class="card-body">
+                    <p><strong>题目：</strong>{{ eq.question.content }}</p>
+                    <p><strong>学生答案：</strong></p>
+                    <div class="alert alert-light border">
+                        {{ eq.student_answer|default:'<span class="text-muted">未作答</span>' }}
+                    </div>
+                    <p><strong>参考答案：</strong></p>
+                    <div class="alert alert-info">
+                        {{ eq.question.answer|default:'暂无参考答案' }}
+                    </div>
+                    
+                    <div class="row mt-3">
+                        <div class="col-md-3">
+                            <label class="form-label">得分：</label>
+                            <input type="number" name="score_{{ eq.question.id }}" 
+                                   class="form-control" min="0" max="{{ eq.max_score }}"
+                                   value="{{ eq.assigned_score|default:0 }}">
+                            <small class="text-muted">满分 {{ eq.max_score }} 分</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="alert alert-warning">
+                本场考试没有简答题，无需批改。
+            </div>
+            {% endfor %}
+
+            <div class="mt-4">
+                <button type="submit" class="btn btn-success">提交批改结果</button>
+                <a href="{% url 'teachers:pending_list' %}" class="btn btn-secondary">返回待批改列表</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

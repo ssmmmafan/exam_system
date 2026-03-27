@@ -18,6 +18,11 @@ class Exam(models.Model):
         db_table = 'exam'
         verbose_name = '考试'
         verbose_name_plural = '考试'
+        indexes = [
+            models.Index(fields=['created_by']),
+            models.Index(fields=['start_time', 'end_time']),
+            models.Index(fields=['is_published']),
+        ]
 
     def __str__(self):
         return self.title
@@ -32,8 +37,14 @@ class ExamQuestion(models.Model):
 
     class Meta:
         db_table = 'exam_question'
+        verbose_name = '考试题目'
+        verbose_name_plural = '考试题目'
         ordering = ['order']
-        unique_together = ['exam', 'order']  # 同一场考试题目顺序不能重复
+        unique_together = ['exam', 'order']
+        indexes = [
+            models.Index(fields=['exam']),
+            models.Index(fields=['question_id']),
+        ]
 
     def __str__(self):
         return f"{self.exam.title} - 第{self.order}题"

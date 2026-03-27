@@ -1,0 +1,132 @@
+{% extends "teachers/base_teacher.html" %}
+
+{% block title %}教师主页{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>欢迎回来，{{ request.user.username }} 老师</h2>
+    
+    <!-- 统计卡片 - 可点击 -->
+    <div class="row mt-4">
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'admin:teachers_question_changelist' %}" class="text-decoration-none">
+                <div class="card stat-card bg-primary text-white hover-shadow">
+                    <div class="card-body">
+                        <h6>我的试题</h6>
+                        <h2 class="display-6">{{ total_questions }}</h2>
+                        <span>管理试题 →</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'admin:exams_exam_changelist' %}" class="text-decoration-none">
+                <div class="card stat-card bg-success text-white hover-shadow">
+                    <div class="card-body">
+                        <h6>我的考试</h6>
+                        <h2 class="display-6">{{ total_exams }}</h2>
+                        <span>管理考试 →</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'teachers:ongoing_exams' %}" class="text-decoration-none">
+                <div class="card stat-card bg-info text-white hover-shadow">
+                    <div class="card-body">
+                        <h6>进行中</h6>
+                        <h2 class="display-6">{{ ongoing_exams }}</h2>
+                        <span>查看进行中考试 →</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-3 mb-3">
+            <a href="{% url 'teachers:pending_list' %}" class="text-decoration-none">
+                <div class="card stat-card bg-warning text-white hover-shadow">
+                    <div class="card-body">
+                        <h6>待批改</h6>
+                        <h2 class="display-6">{{ pending_grading }}</h2>
+                        <span>批改试卷 →</span>
+                    </div>
+                </div>
+            </a>
+        </div>
+    </div>
+    
+    <!-- 最近创建的考试 -->
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">📋 最近创建的考试</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_exams %}
+                    <div class="list-group">
+                        {% for exam in recent_exams %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <h6>{{ exam.title }}</h6>
+                                <small>{{ exam.created_at|date:'m-d H:i' }}</small>
+                            </div>
+                            <span class="badge {% if exam.is_published %}bg-success{% else %}bg-secondary{% endif %}">
+                                {% if exam.is_published %}已发布{% else %}未发布{% endif %}
+                            </span>
+                            <a href="{% url 'teachers:exam_students' exam.id %}" class="btn btn-sm btn-outline-primary mt-2">
+                                查看考生
+                            </a>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">暂无创建的考试</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- 最近创建的试题 -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">✏️ 最近创建的试题</h5>
+                </div>
+                <div class="card-body">
+                    {% if recent_questions %}
+                    <div class="list-group">
+                        {% for question in recent_questions %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <span>[{{ question.get_type_display }}] {{ question.content|truncatechars:30 }}</span>
+                                <small>{{ question.created_at|date:'m-d H:i' }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">暂无创建的试题</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .stat-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+    }
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    .hover-shadow:hover {
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+    a.text-decoration-none {
+        display: block;
+    }
+</style>
+{% endblock %}

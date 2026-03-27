@@ -1,0 +1,80 @@
+{% extends "teachers/base_teacher.html" %}
+
+{% block title %}考试管理{% endblock %}
+
+{% block content %}
+<!-- 进行中的考试 -->
+<div class="card mb-4">
+    <div class="card-header bg-success text-white">
+        <h4 class="mb-0">🟢 进行中的考试</h4>
+    </div>
+    <div class="card-body">
+        {% if ongoing %}
+        <div class="list-group">
+            {% for exam in ongoing %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <h6>{{ exam.title }}</h6>
+                    <small>截止：{{ exam.end_time|date:'Y-m-d H:i' }}</small>
+                </div>
+                <a href="{% url 'teachers:exam_students' exam.id %}" class="btn btn-sm btn-outline-primary mt-2">
+                    查看考生成绩
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">暂无进行中的考试</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 即将开始的考试 -->
+<div class="card mb-4">
+    <div class="card-header bg-info text-white">
+        <h4 class="mb-0">⏰ 即将开始的考试</h4>
+    </div>
+    <div class="card-body">
+        {% if upcoming %}
+        <div class="list-group">
+            {% for exam in upcoming %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <h6>{{ exam.title }}</h6>
+                    <small>开始：{{ exam.start_time|date:'Y-m-d H:i' }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">暂无即将开始的考试</p>
+        {% endif %}
+    </div>
+</div>
+
+<!-- 已结束的考试 -->
+<div class="card">
+    <div class="card-header bg-secondary text-white">
+        <h4 class="mb-0">✅ 已结束的考试</h4>
+    </div>
+    <div class="card-body">
+        {% if ended %}
+        <div class="list-group">
+            {% for exam in ended %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <h6>{{ exam.title }}</h6>
+                    <small>结束：{{ exam.end_time|date:'Y-m-d H:i' }}</small>
+                </div>
+                <a href="{% url 'teachers:exam_students' exam.id %}" class="btn btn-sm btn-outline-secondary mt-2">
+                    查看成绩统计
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-muted">暂无已结束的考试</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

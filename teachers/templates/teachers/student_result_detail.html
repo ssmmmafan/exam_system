@@ -1,0 +1,194 @@
+{% extends "teachers/base_teacher.html" %}
+
+{% block title %}学生成绩详情 - {{ exam.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>📊 学生成绩详情</h2>
+        <a href="{% url 'teachers:exam_students' exam.id %}" class="btn btn-secondary">
+            ← 返回考生列表
+        </a>
+    </div>
+
+    <!-- 学生信息卡片 -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">{{ exam.title }}</h4>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6>学生姓名</h6>
+                            <p class="display-6">{{ student.username }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6>学号</h6>
+                            <p class="display-6">
+                                {% if student.student_profile %}
+                                    {{ student.student_profile.student_id }}
+                                {% else %}
+                                    未设置
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6>提交时间</h6>
+                            <p class="mb-0">{{ submitted_at|date:'Y-m-d H:i:s' }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-light">
+                        <div class="card-body">
+                            <h6>批改时间</h6>
+                            <p class="mb-0">
+                                {% if reviewed_at %}
+                                    {{ reviewed_at|date:'Y-m-d H:i:s' }}
+                                {% else %}
+                                    未批改
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="row mt-3">
+                <div class="col-md-6">
+                    <div class="card {% if has_essay_unscored %}bg-warning{% else %}bg-success{% endif %} text-white">
+                        <div class="card-body text-center">
+                            <h5>最终得分</h5>
+                            <p class="display-4">
+                                {% if has_essay_unscored %}
+                                    待批改
+                                {% else %}
+                                    {{ total_score }} / {{ total_possible }}
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card bg-info text-white">
+                        <div class="card-body text-center">
+                            <h5>批改教师</h5>
+                            <p class="display-6">
+                                {% if reviewed_by %}
+                                    {{ reviewed_by.username }}
+                                {% else %}
+                                    未批改
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 答题详情 -->
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0">📝 答题详情</h4>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 5%">#</th>
+                            <th style="width: 15%">题型</th>
+                            <th style="width: 35%">题目</th>
+                            <th style="width: 20%">学生答案</th>
+                            <th style="width: 15%">参考答案</th>
+                            <th style="width: 10%">得分</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for detail in result_details %}
+                        <tr class="{% if detail.is_essay and not detail.is_scored %}table-warning{% elif detail.is_correct %}table-success{% elif not detail.is_correct and not detail.is_essay %}table-danger{% endif %}">
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <span class="badge {% if detail.type_display == '简答题' %}bg-warning{% elif detail.type_display == '单选题' %}bg-primary{% elif detail.type_display == '多选题' %}bg-info{% else %}bg-secondary{% endif %}">
+                                    {{ detail.type_display }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if detail.question %}
+                                    {{ detail.question.content }}
+                                    {% if detail.question.options %}
+                                        <br>
+                                        <small class="text-muted">
+                                            {% for key, value in detail.question.options.items %}
+                                                {{ key }}. {{ value }}<br>
+                                            {% endfor %}
+                                        </small>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-danger">题目不存在</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if detail.student_answer %}
+                                    {% if detail.type_display == '简答题' %}
+                                        <div class="alert alert-light border">
+                                            {{ detail.student_answer|linebreaks }}
+                                        </div>
+                                    {% else %}
+                                        {{ detail.student_answer }}
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">未作答</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if detail.type_display == '简答题' %}
+                                    <div class="alert alert-info">
+                                        {{ detail.question.answer|default:'暂无参考答案' }}
+                                    </div>
+                                {% else %}
+                                    {{ detail.question.answer|default:'-' }}
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if detail.is_essay %}
+                                    {% if detail.is_scored %}
+                                        <span class="badge bg-success">{{ detail.score }} / {{ detail.max_score }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">待批改</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="badge {% if detail.is_correct %}bg-success{% else %}bg-danger{% endif %}">
+                                        {{ detail.score }} / {{ detail.max_score }}
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 如果还有待批改的简答题，显示批改按钮 -->
+            {% if has_essay_unscored %}
+            <div class="alert alert-warning mt-3">
+                <i class="bi bi-info-circle"></i> 该学生还有简答题未批改
+                <a href="{% url 'teachers:grade_essay' record.id %}" class="btn btn-sm btn-warning float-end">
+                    立即批改
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
