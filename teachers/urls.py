@@ -10,4 +10,6 @@ urlpatterns = [
     path('ongoing/', views.ongoing_exams, name='ongoing_exams'),
     path('exam/<int:exam_id>/students/', views.exam_students, name='exam_students'),
     path('result/<int:record_id>/', views.student_result_detail, name='student_result_detail'),
+    path('import/', views.import_questions, name='import_questions'),
+    path('random-exam/', views.random_exam, name='random_exam'),
 ]

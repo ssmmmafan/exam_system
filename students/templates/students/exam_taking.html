@@ -78,8 +78,8 @@
             {% if item.question.type == 'single' %}
             <!-- 单选题 -->
             <div class="options-group">
-                {% if item.question.options %}
-                    {% for key, value in item.question.options.items %}
+                {% if item.question.shuffled_options %}
+                    {% for key, value in item.question.shuffled_options.items %}
                     <div class="form-check">
                         <input class="form-check-input" type="radio"
                                name="question_{{ item.eq.question_id }}"
@@ -98,8 +98,8 @@
             {% elif item.question.type == 'multiple' %}
             <!-- 多选题 -->
             <div class="options-group">
-                {% if item.question.options %}
-                    {% for key, value in item.question.options.items %}
+                {% if item.question.shuffled_options %}
+                    {% for key, value in item.question.shuffled_options.items %}
                     <div class="form-check">
                         <input class="form-check-input" type="checkbox"
                                name="question_{{ item.eq.question_id }}"
@@ -147,6 +147,25 @@
                           rows="4"
                           placeholder="请输入你的答案..."></textarea>
                 <small class="text-muted">提示：简答题将由教师批改</small>
+            </div>
+
+            {% elif item.question.type == 'fill' %}
+            <!-- 填空题 -->
+            <div class="mt-3">
+                <input type="text" class="form-control"
+                       name="question_{{ item.eq.question_id }}"
+                       placeholder="请输入答案...">
+                <small class="text-muted">提示：请直接输入答案，不要加多余的标点符号</small>
+            </div>
+
+            {% elif item.question.type == 'discussion' %}
+            <!-- 论述题 -->
+            <div class="mt-3">
+                <textarea class="form-control"
+                          name="question_{{ item.eq.question_id }}"
+                          rows="6"
+                          placeholder="请输入你的答案..."></textarea>
+                <small class="text-muted">提示：论述题将由教师批改，请详细作答</small>
             </div>
 
             {% else %}

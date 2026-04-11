@@ -5,9 +5,25 @@ from django.contrib import messages
 from django.utils import timezone
 from django.core.paginator import Paginator
 from django.core.cache import cache
-from .models import TeacherProfile, Question
+from django.http import HttpResponse
+from .models import TeacherProfile, Question, QuestionTag
 from exams.models import Exam, ExamQuestion
 from students.models import StudentExamRecord
+
+# 尝试导入pandas，如果失败则设置为None
+try:
+    import pandas as pd
+    import io
+    PANDAS_AVAILABLE = True
+except ImportError:
+    pd = None
+    io = None
+    PANDAS_AVAILABLE = False
+
+
+def get_questions_dict(question_ids):
+    """批量获取题目信息，返回字典格式"""
+    return {q.id: q for q in Question.objects.filter(id__in=question_ids)}
 
 
 def is_teacher(user):
@@ -130,50 +146,53 @@ def grade_essay(request, record_id):
     exam = record.exam
     exam_questions = ExamQuestion.objects.filter(exam=exam).order_by('order')
 
-    # 获取所有简答题
+    # 提取所有题目ID
+    question_ids = [eq.question_id for eq in exam_questions]
+    
+    # 批量获取题目信息，减少数据库查询次数
+    questions_dict = get_questions_dict(question_ids)
+
+    # 获取所有需要手动批改的题目（简答题、论述题）
     essay_questions = []
     for eq in exam_questions:
-        try:
-            question = Question.objects.get(id=eq.question_id)
-            if question.type == 'essay':
-                student_answer = record.answers.get(str(eq.question_id), '')
-                score_key = f'score_{eq.question_id}'
-                existing_score = record.answers.get(score_key, None)
-                if existing_score is not None:
-                    existing_score = int(existing_score)
+        question = questions_dict.get(eq.question_id)
+        if question and question.type in ['essay', 'discussion']:
+            student_answer = record.answers.get(str(eq.question_id), '')
+            score_key = f'score_{eq.question_id}'
+            existing_score = record.answers.get(score_key, None)
+            if existing_score is not None:
+                existing_score = int(existing_score)
 
-                essay_questions.append({
-                    'eq': eq,
-                    'question': question,
-                    'student_answer': student_answer,
-                    'max_score': eq.score,
-                    'existing_score': existing_score,
-                })
-        except Question.DoesNotExist:
-            pass
+            essay_questions.append({
+                'eq': eq,
+                'question': question,
+                'student_answer': student_answer,
+                'max_score': eq.score,
+                'existing_score': existing_score,
+            })
 
     if request.method == 'POST':
         # ✅ 第一步：计算客观题分数（从学生答案中计算）
         objective_score = 0
         for eq in exam_questions:
-            try:
-                question = Question.objects.get(id=eq.question_id)
-                if question.type != 'essay':
-                    student_answer = record.answers.get(str(eq.question_id), '')
+            question = questions_dict.get(eq.question_id)
+            if question and question.type != 'essay':
+                student_answer = record.answers.get(str(eq.question_id), '')
 
-                    if question.type == 'single':
-                        if student_answer == question.answer:
-                            objective_score += eq.score
-                    elif question.type == 'multiple':
-                        student_set = set(student_answer.split(',')) if student_answer else set()
-                        correct_set = set(question.answer.split(','))
-                        if student_set == correct_set:
-                            objective_score += eq.score
-                    elif question.type == 'judge':
-                        if student_answer == question.answer:
-                            objective_score += eq.score
-            except Question.DoesNotExist:
-                pass
+                if question.type == 'single':
+                    if student_answer == question.answer:
+                        objective_score += eq.score
+                elif question.type == 'multiple':
+                    student_set = set(student_answer.split(',')) if student_answer else set()
+                    correct_set = set(question.answer.split(','))
+                    if student_set == correct_set:
+                        objective_score += eq.score
+                elif question.type == 'judge':
+                    if student_answer == question.answer:
+                        objective_score += eq.score
+                elif question.type == 'fill':
+                    if student_answer == question.answer:
+                        objective_score += eq.score
 
         # ✅ 第二步：获取教师批改的简答题分数
         essay_score = 0
@@ -430,3 +449,148 @@ def student_result_detail(request, record_id):
         'reviewed_by': record.reviewed_by,
     }
     return render(request, 'teachers/student_result_detail.html', context)
+
+
+@login_required
+def import_questions(request):
+    """批量导入题目"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+
+    if not PANDAS_AVAILABLE:
+        messages.error(request, '批量导入功能需要安装pandas库，请联系管理员')
+        return redirect('teachers:dashboard')
+
+    if request.method == 'POST' and request.FILES.get('file'):
+        file = request.FILES['file']
+        
+        # 检查文件类型
+        if not (file.name.endswith('.xlsx') or file.name.endswith('.csv')):
+            messages.error(request, '请上传Excel或CSV文件')
+            return redirect('teachers:import_questions')
+
+        try:
+            # 读取文件
+            if file.name.endswith('.xlsx'):
+                df = pd.read_excel(file)
+            else:
+                df = pd.read_csv(file)
+
+            # 验证必要列
+            required_columns = ['type', 'content', 'answer', 'score']
+            if not all(col in df.columns for col in required_columns):
+                messages.error(request, '文件缺少必要列，请确保包含type、content、answer、score列')
+                return redirect('teachers:import_questions')
+
+            # 批量创建题目
+            created_count = 0
+            for _, row in df.iterrows():
+                # 处理标签
+                tags = []
+                if 'tags' in row and pd.notna(row['tags']):
+                    tag_names = [tag.strip() for tag in row['tags'].split(',')]
+                    for tag_name in tag_names:
+                        tag, _ = QuestionTag.objects.get_or_create(name=tag_name)
+                        tags.append(tag)
+
+                # 创建题目
+                question = Question.objects.create(
+                    type=row['type'],
+                    content=row['content'],
+                    answer=row['answer'],
+                    score=int(row['score']),
+                    created_by=request.user
+                )
+
+                # 添加标签
+                if tags:
+                    question.tags.add(*tags)
+
+                created_count += 1
+
+            messages.success(request, f'成功导入{created_count}道题目')
+            clear_teacher_cache(request.user.id)
+            return redirect('teachers:dashboard')
+
+        except Exception as e:
+            messages.error(request, f'导入失败：{str(e)}')
+            return redirect('teachers:import_questions')
+
+    return render(request, 'teachers/import_questions.html')
+
+
+@login_required
+def random_exam(request):
+    """随机组卷"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+
+    if request.method == 'POST':
+        # 获取表单数据
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        duration = int(request.POST.get('duration'))
+        start_time = request.POST.get('start_time')
+        end_time = request.POST.get('end_time')
+        total_score = int(request.POST.get('total_score'))
+        random_questions = request.POST.get('random_questions') == 'on'
+        random_options = request.POST.get('random_options') == 'on'
+        enable_monitoring = request.POST.get('enable_monitoring') == 'on'
+        
+        # 题目配置
+        question_config = {
+            'single': int(request.POST.get('single_count', 0)),
+            'multiple': int(request.POST.get('multiple_count', 0)),
+            'judge': int(request.POST.get('judge_count', 0)),
+            'essay': int(request.POST.get('essay_count', 0)),
+            'fill': int(request.POST.get('fill_count', 0)),
+            'discussion': int(request.POST.get('discussion_count', 0)),
+        }
+        
+        # 创建考试
+        exam = Exam.objects.create(
+            title=title,
+            description=description,
+            duration=duration,
+            start_time=start_time,
+            end_time=end_time,
+            total_score=total_score,
+            is_published=False,
+            random_questions=random_questions,
+            random_options=random_options,
+            enable_monitoring=enable_monitoring,
+            created_by=request.user
+        )
+        
+        # 随机选择题目
+        order = 1
+        for q_type, count in question_config.items():
+            if count > 0:
+                # 筛选符合条件的题目
+                questions = Question.objects.filter(
+                    type=q_type,
+                    created_by=request.user
+                ).order_by('?')[:count]
+                
+                # 添加到考试
+                for question in questions:
+                    ExamQuestion.objects.create(
+                        exam=exam,
+                        question_id=question.id,
+                        order=order,
+                        score=question.score
+                    )
+                    order += 1
+        
+        messages.success(request, '随机组卷成功！')
+        return redirect('teachers:dashboard')
+    
+    # 获取题型列表
+    question_types = Question.QUESTION_TYPES
+    
+    context = {
+        'question_types': question_types,
+    }
+    return render(request, 'teachers/random_exam.html', context)

@@ -8,8 +8,42 @@ import re
 from .models import StudentProfile, StudentExamRecord
 from exams.models import Exam, ExamQuestion
 from django.core.cache import cache
-from django.utils import timezone
 from teachers.models import Question
+
+
+def get_question_with_content(exam_questions, random_options=False):
+    """获取题目详细信息，支持随机选项顺序"""
+    # 提取所有题目ID
+    question_ids = [eq.question_id for eq in exam_questions]
+    
+    # 批量获取题目信息，减少数据库查询次数
+    questions_dict = {q.id: q for q in Question.objects.filter(id__in=question_ids)}
+
+    # 获取完整的题目信息
+    questions_with_content = []
+    for eq in exam_questions:
+        question = questions_dict.get(eq.question_id)
+        if question:
+            # 随机选项顺序
+            if random_options and question.options:
+                import random
+                options_list = list(question.options.items())
+                random.shuffle(options_list)
+                question.shuffled_options = dict(options_list)
+            else:
+                question.shuffled_options = question.options
+                
+            questions_with_content.append({
+                'eq': eq,
+                'question': question,
+            })
+        else:
+            # 题目不存在的情况
+            questions_with_content.append({
+                'eq': eq,
+                'question': None,
+            })
+    return questions_with_content
 def register_view(request):
     """学生注册页面"""
     if request.user.is_authenticated:
@@ -212,21 +246,14 @@ def exam_taking(request, exam_id):
     # 获取所有试题
     exam_questions = ExamQuestion.objects.filter(exam=exam).order_by('order')
 
-    # ✅ 获取完整的题目信息
-    questions_with_content = []
-    for eq in exam_questions:
-        try:
-            question = Question.objects.get(id=eq.question_id)
-            questions_with_content.append({
-                'eq': eq,
-                'question': question,
-            })
-        except Question.DoesNotExist:
-            # 题目不存在的情况
-            questions_with_content.append({
-                'eq': eq,
-                'question': None,
-            })
+    # 随机题目顺序
+    if exam.random_questions:
+        import random
+        exam_questions = list(exam_questions)
+        random.shuffle(exam_questions)
+
+    # 获取完整的题目信息
+    questions_with_content = get_question_with_content(exam_questions, exam.random_options)
 
     # 计算剩余时间
     time_delta = exam.end_time - now
@@ -286,9 +313,15 @@ def submit_exam(request, exam_id):
         exam_questions = ExamQuestion.objects.filter(exam=exam)
         has_essay = False  # 👈 标记是否有简答题
 
+        # 提取所有题目ID
+        question_ids = [eq.question_id for eq in exam_questions]
+        
+        # 批量获取题目信息，减少数据库查询次数
+        questions_dict = {q.id: q for q in Question.objects.filter(id__in=question_ids)}
+
         for eq in exam_questions:
-            try:
-                question = Question.objects.get(id=eq.question_id)
+            question = questions_dict.get(eq.question_id)
+            if question:
                 student_answer = answers.get(str(eq.question_id), '')
 
                 if question.type == 'single':
@@ -305,11 +338,12 @@ def submit_exam(request, exam_id):
                     if student_answer == question.answer:
                         total_score += eq.score
 
+                elif question.type == 'fill':
+                    if student_answer == question.answer:
+                        total_score += eq.score
+
                 elif question.type == 'essay':
                     has_essay = True  # 👈 标记有简答题
-
-            except Question.DoesNotExist:
-                pass
 
         # 更新记录
         record.answers = answers
@@ -352,12 +386,18 @@ def exam_result(request, record_id):
 
     exam_questions = ExamQuestion.objects.filter(exam=record.exam).order_by('order')
 
+    # 提取所有题目ID
+    question_ids = [eq.question_id for eq in exam_questions]
+    
+    # 批量获取题目信息，减少数据库查询次数
+    questions_dict = {q.id: q for q in Question.objects.filter(id__in=question_ids)}
+
     result_details = []
     has_essay_unscored = False
 
     for eq in exam_questions:
-        try:
-            question = Question.objects.get(id=eq.question_id)
+        question = questions_dict.get(eq.question_id)
+        if question:
             student_answer = record.answers.get(str(eq.question_id), '')
 
             if question.type == 'essay':
@@ -378,7 +418,7 @@ def exam_result(request, record_id):
                     'score': score,
                     'is_correct': False,
                     'is_essay': True,
-                    'is_scored': is_scored,  # 👈 添加这个字段
+                    'is_scored': is_scored,
                     'type_display': type_display,
                 })
 
@@ -391,13 +431,70 @@ def exam_result(request, record_id):
                     'score': eq.score if is_correct else 0,
                     'is_correct': is_correct,
                     'is_essay': False,
-                    'is_scored': True,  # 客观题总是已批改
+                    'is_scored': True,
                     'type_display': '单选题',
                 })
+            elif question.type == 'multiple':
+                student_set = set(student_answer.split(',')) if student_answer else set()
+                correct_set = set(question.answer.split(','))
+                is_correct = (student_set == correct_set)
+                result_details.append({
+                    'question_id': eq.question_id,
+                    'student_answer': student_answer,
+                    'correct_answer': question.answer,
+                    'score': eq.score if is_correct else 0,
+                    'is_correct': is_correct,
+                    'is_essay': False,
+                    'is_scored': True,
+                    'type_display': '多选题',
+                })
+            elif question.type == 'judge':
+                is_correct = (student_answer == question.answer)
+                result_details.append({
+                    'question_id': eq.question_id,
+                    'student_answer': student_answer,
+                    'correct_answer': question.answer,
+                    'score': eq.score if is_correct else 0,
+                    'is_correct': is_correct,
+                    'is_essay': False,
+                    'is_scored': True,
+                    'type_display': '判断题',
+                })
+            elif question.type == 'fill':
+                is_correct = (student_answer == question.answer)
+                result_details.append({
+                    'question_id': eq.question_id,
+                    'student_answer': student_answer,
+                    'correct_answer': question.answer,
+                    'score': eq.score if is_correct else 0,
+                    'is_correct': is_correct,
+                    'is_essay': False,
+                    'is_scored': True,
+                    'type_display': '填空题',
+                })
+            elif question.type == 'discussion':
+                type_display = '论述题'
+                score_key = f'score_{eq.question_id}'
+                if score_key in record.answers:
+                    score = int(record.answers[score_key])
+                    is_scored = True
+                else:
+                    score = 0
+                    is_scored = False
+                    has_essay_unscored = True
 
-            # ... 其他题型类似，添加 is_scored: True ...
+                result_details.append({
+                    'question_id': eq.question_id,
+                    'student_answer': student_answer,
+                    'correct_answer': question.answer,
+                    'score': score,
+                    'is_correct': False,
+                    'is_essay': True,
+                    'is_scored': is_scored,
+                    'type_display': type_display,
+                })
 
-        except Question.DoesNotExist:
+        else:
             result_details.append({
                 'question_id': eq.question_id,
                 'student_answer': '题目不存在',

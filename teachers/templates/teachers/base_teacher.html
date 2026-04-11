@@ -66,6 +66,9 @@
                     <a href="{% url 'admin:teachers_question_changelist' %}">
                         <i class="bi bi-question-circle nav-icon"></i> 题库管理
                     </a>
+                    <a href="{% url 'teachers:import_questions' %}" class="{% if request.resolver_match.url_name == 'import_questions' %}active{% endif %}">
+                        <i class="bi bi-upload nav-icon"></i> 批量导入题目
+                    </a>
                     <a href="{% url 'admin:exams_exam_changelist' %}">
                         <i class="bi bi-pencil-square nav-icon"></i> 考试管理
                     </a>

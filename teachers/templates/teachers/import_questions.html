@@ -1,0 +1,31 @@
+{% extends 'teachers/base_teacher.html' %}
+
+{% block title %}批量导入题目{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>批量导入题目</h2>
+    <div class="card">
+        <div class="card-body">
+            <form method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="file" class="form-label">上传文件</label>
+                    <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.csv" required>
+                </div>
+                <div class="mb-3">
+                    <h5>文件格式说明：</h5>
+                    <ul>
+                        <li>支持 Excel (.xlsx) 和 CSV (.csv) 格式</li>
+                        <li>必须包含以下列：type（题型）、content（题目内容）、answer（答案）、score（分值）</li>
+                        <li>可选列：tags（标签，多个标签用逗号分隔）</li>
+                        <li>题型取值：single（单选题）、multiple（多选题）、judge（判断题）、essay（简答题）、fill（填空题）、discussion（论述题）</li>
+                    </ul>
+                </div>
+                <button type="submit" class="btn btn-primary">导入</button>
+                <a href="{% url 'teachers:dashboard' %}" class="btn btn-secondary">取消</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

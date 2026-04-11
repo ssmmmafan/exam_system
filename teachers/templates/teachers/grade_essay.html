@@ -18,7 +18,13 @@
             {% for eq in essay_questions %}
             <div class="card mb-3">
                 <div class="card-header">
+                    {% if eq.question.type == 'essay' %}
                     <strong>简答题 {{ forloop.counter }}</strong> (满分 {{ eq.max_score }} 分)
+                    {% elif eq.question.type == 'discussion' %}
+                    <strong>论述题 {{ forloop.counter }}</strong> (满分 {{ eq.max_score }} 分)
+                    {% elif eq.question.type == 'fill' %}
+                    <strong>填空题 {{ forloop.counter }}</strong> (满分 {{ eq.max_score }} 分)
+                    {% endif %}
                 </div>
                 <div class="card-body">
                     <p><strong>题目：</strong>{{ eq.question.content }}</p>
@@ -36,7 +42,7 @@
                             <label class="form-label">得分：</label>
                             <input type="number" name="score_{{ eq.question.id }}" 
                                    class="form-control" min="0" max="{{ eq.max_score }}"
-                                   value="{{ eq.assigned_score|default:0 }}">
+                                   value="{{ eq.existing_score|default:0 }}">
                             <small class="text-muted">满分 {{ eq.max_score }} 分</small>
                         </div>
                     </div>
@@ -44,7 +50,7 @@
             </div>
             {% empty %}
             <div class="alert alert-warning">
-                本场考试没有简答题，无需批改。
+                本场考试没有需要手动批改的题目。
             </div>
             {% endfor %}
 

@@ -2,6 +2,21 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class QuestionTag(models.Model):
+    """题目标签"""
+    name = models.CharField('标签名称', max_length=50, unique=True)
+    description = models.CharField('标签描述', max_length=200, blank=True)
+    created_at = models.DateTimeField('创建时间', auto_now_add=True)
+    
+    class Meta:
+        db_table = 'question_tag'
+        verbose_name = '题目标签'
+        verbose_name_plural = '题目标签'
+    
+    def __str__(self):
+        return self.name
+
+
 class TeacherProfile(models.Model):
     """教师扩展信息"""
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='teacher_profile')
@@ -37,6 +52,8 @@ class Question(models.Model):
         ('multiple', '多选题'),
         ('judge', '判断题'),
         ('essay', '简答题'),
+        ('fill', '填空题'),
+        ('discussion', '论述题'),
     )
     DIFFICULTY_LEVELS = (
         (1, '简单'),
@@ -59,6 +76,7 @@ class Question(models.Model):
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_questions')
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
     updated_at = models.DateTimeField('更新时间', auto_now=True)
+    tags = models.ManyToManyField(QuestionTag, blank=True, related_name='questions', verbose_name='标签')
 
     class Meta:
         db_table = 'question'

@@ -1,0 +1,72 @@
+{% extends 'teachers/base_teacher.html' %}
+
+{% block title %}随机组卷{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>随机组卷</h2>
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="title" class="form-label">考试标题</label>
+                    <input type="text" class="form-control" id="title" name="title" required>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">考试描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <label for="duration" class="form-label">考试时长（分钟）</label>
+                        <input type="number" class="form-control" id="duration" name="duration" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="start_time" class="form-label">开始时间</label>
+                        <input type="datetime-local" class="form-control" id="start_time" name="start_time" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="end_time" class="form-label">结束时间</label>
+                        <input type="datetime-local" class="form-control" id="end_time" name="end_time" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="total_score" class="form-label">总分</label>
+                    <input type="number" class="form-control" id="total_score" name="total_score" required>
+                </div>
+                <div class="mb-3">
+                    <h5>防作弊设置</h5>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="random_questions" name="random_questions">
+                        <label class="form-check-label" for="random_questions">随机题目顺序</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="random_options" name="random_options">
+                        <label class="form-check-label" for="random_options">随机选项顺序</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="enable_monitoring" name="enable_monitoring">
+                        <label class="form-check-label" for="enable_monitoring">启用监控</label>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <h5>题目配置</h5>
+                    {% for type_value, type_display in question_types %}
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <label for="{{ type_value }}_count" class="form-label">{{ type_display }}数量</label>
+                        </div>
+                        <div class="col-md-6">
+                            <input type="number" class="form-control" id="{{ type_value }}_count" name="{{ type_value }}_count" min="0" value="0">
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn btn-primary">生成试卷</button>
+                <a href="{% url 'teachers:dashboard' %}" class="btn btn-secondary">取消</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

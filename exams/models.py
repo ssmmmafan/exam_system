@@ -11,6 +11,9 @@ class Exam(models.Model):
     end_time = models.DateTimeField('结束时间')
     total_score = models.IntegerField('总分', default=100)
     is_published = models.BooleanField('是否发布', default=False)
+    random_questions = models.BooleanField('随机题目顺序', default=False)
+    random_options = models.BooleanField('随机选项顺序', default=False)
+    enable_monitoring = models.BooleanField('启用监控', default=False)
     created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='created_exams')
     created_at = models.DateTimeField('创建时间', auto_now_add=True)
 
