@@ -13,15 +13,116 @@
                     <label for="file" class="form-label">上传文件</label>
                     <input type="file" class="form-control" id="file" name="file" accept=".xlsx,.csv" required>
                 </div>
+                
                 <div class="mb-3">
-                    <h5>文件格式说明：</h5>
+                    <h5>📋 必需列：</h5>
                     <ul>
-                        <li>支持 Excel (.xlsx) 和 CSV (.csv) 格式</li>
-                        <li>必须包含以下列：type（题型）、content（题目内容）、answer（答案）、score（分值）</li>
-                        <li>可选列：tags（标签，多个标签用逗号分隔）</li>
-                        <li>题型取值：single（单选题）、multiple（多选题）、judge（判断题）、essay（简答题）、fill（填空题）、discussion（论述题）</li>
+                        <li><strong>type</strong> - 题型（single/multiple/judge/essay/fill/discussion）</li>
+                        <li><strong>content</strong> - 题目内容（会自动去除"学科第X题："前缀）</li>
+                        <li><strong>answer</strong> - 答案</li>
+                        <li><strong>score</strong> - 分值（整数）</li>
                     </ul>
                 </div>
+                
+                <div class="mb-3">
+                    <h5>✨ 可选列：</h5>
+                    <ul>
+                        <li><strong>options</strong> - 选项（JSON格式或分号分隔，单选题/多选题必填）</li>
+                        <li><strong>analysis</strong> - 解析说明</li>
+                        <li><strong>difficulty</strong> - 难度（1-5，默认3）</li>
+                        <li><strong>chapter</strong> - 章节</li>
+                        <li><strong>knowledge_point</strong> - 知识点</li>
+                        <li><strong>tags</strong> - 标签（逗号分隔）</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h5>📝 题型说明：</h5>
+                    <ul>
+                        <li><strong>single</strong> - 单选题（需要options，答案为单个字母如A、B）</li>
+                        <li><strong>multiple</strong> - 多选题（需要options，答案为逗号分隔如A,B,C）</li>
+                        <li><strong>judge</strong> - 判断题（答案为"对"或"错"）</li>
+                        <li><strong>essay</strong> - 简答题（直接填写答案）</li>
+                        <li><strong>fill</strong> - 填空题（多个答案用分号分隔）</li>
+                        <li><strong>discussion</strong> - 论述题（直接填写答案）</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h5>📊 导入格式实例：</h5>
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>type</th>
+                                <th>content</th>
+                                <th>options</th>
+                                <th>answer</th>
+                                <th>score</th>
+                                <th>analysis</th>
+                                <th>difficulty</th>
+                                <th>chapter</th>
+                                <th>knowledge_point</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>single</td>
+                                <td>下列哪个是正确的？</td>
+                                <td>{"A":"选项A内容","B":"选项B内容","C":"选项C内容","D":"选项D内容"}</td>
+                                <td>A</td>
+                                <td>2</td>
+                                <td>本题解析...</td>
+                                <td>3</td>
+                                <td>第1章</td>
+                                <td>知识点1</td>
+                            </tr>
+                            <tr>
+                                <td>multiple</td>
+                                <td>下列说法正确的有？</td>
+                                <td>{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"}</td>
+                                <td>A,B,C</td>
+                                <td>4</td>
+                                <td>本题解析...</td>
+                                <td>4</td>
+                                <td>第2章</td>
+                                <td>知识点2</td>
+                            </tr>
+                            <tr>
+                                <td>judge</td>
+                                <td>地球是圆的。</td>
+                                <td></td>
+                                <td>对</td>
+                                <td>1</td>
+                                <td>本题解析...</td>
+                                <td>1</td>
+                                <td>第3章</td>
+                                <td>知识点3</td>
+                            </tr>
+                            <tr>
+                                <td>fill</td>
+                                <td>______是重要的概念。</td>
+                                <td></td>
+                                <td>答案1;答案2</td>
+                                <td>3</td>
+                                <td>本题解析...</td>
+                                <td>2</td>
+                                <td>第4章</td>
+                                <td>知识点4</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mb-3 alert alert-info">
+                    <strong>提示：</strong>
+                    <ul>
+                        <li>CSV文件中JSON格式的options需要用双引号包裹，内部双引号用两个双引号转义</li>
+                        <li>题目内容中的"学科第X题："前缀会自动去除</li>
+                        <li>多选题答案用英文逗号分隔，如：A,B,C</li>
+                        <li>填空题多个答案用分号分隔，如：答案1;答案2</li>
+                    </ul>
+                </div>
+                
                 <button type="submit" class="btn btn-primary">导入</button>
                 <a href="{% url 'teachers:dashboard' %}" class="btn btn-secondary">取消</a>
             </form>

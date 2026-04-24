@@ -31,7 +31,7 @@ class QuestionForm(forms.ModelForm):
             self.fields['answer'].help_text = '简答题：填写参考答案'
         else:
             # 默认显示
-            self.fields['options'].help_text = '单选题/多选题请填写选项'
+            self.fields['options'].help_text = '单选题/多选题请填写选项，格式：{"A": "选项A", "B": "选项B", "C": "选项C"}'
 
 
 @admin.register(Question)
@@ -43,7 +43,6 @@ class QuestionAdmin(admin.ModelAdmin):
     search_fields = ('content', 'knowledge_point')
     list_per_page = 20
     date_hierarchy = 'created_at'
-
 
     fieldsets = (
         ('基本信息', {
@@ -57,7 +56,7 @@ class QuestionAdmin(admin.ModelAdmin):
             'fields': ('answer', 'analysis'),
         }),
         ('分类信息', {
-            'fields': ('chapter', 'knowledge_point', 'created_by'),
+            'fields': ('chapter', 'knowledge_point'),
             'classes': ('collapse',)
         }),
     )

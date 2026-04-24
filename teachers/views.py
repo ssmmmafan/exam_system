@@ -493,13 +493,52 @@ def import_questions(request):
                     for tag_name in tag_names:
                         tag, _ = QuestionTag.objects.get_or_create(name=tag_name)
                         tags.append(tag)
+                
+                # 处理题目内容：去除"学科第X题："前缀
+                content = str(row['content'])
+                import re
+                content = re.sub(r'^[\\u4e00-\\u9fa5]+第\\d+题：', '', content)
+                
+                # 处理选项：单选题和多选题需要选项
+                options = None
+                question_type = str(row['type']).strip().lower()
+                if 'options' in row and pd.notna(row['options']):
+                    options_str = str(row['options']).strip()
+                    if options_str:
+                        try:
+                            import json
+                            # 处理CSV转义的双引号
+                            options_str = options_str.replace('""', '"')
+                            options = json.loads(options_str)
+                        except:
+                            # 如果JSON解析失败，尝试按分号分隔
+                            options = {}
+                            parts = options_str.split(';')
+                            for i, part in enumerate(parts):
+                                key = chr(ord('A') + i)
+                                options[key] = part.strip()
+                
+                # 处理章节和知识点
+                chapter = str(row['chapter']).strip() if 'chapter' in row and pd.notna(row['chapter']) else ''
+                knowledge_point = str(row['knowledge_point']).strip() if 'knowledge_point' in row and pd.notna(row['knowledge_point']) else ''
+                
+                # 处理难度
+                difficulty = int(row['difficulty']) if 'difficulty' in row and pd.notna(row['difficulty']) else 3
+                
+                # 处理解析
+                analysis = str(row['analysis']).strip() if 'analysis' in row and pd.notna(row['analysis']) else ''
 
                 # 创建题目
                 question = Question.objects.create(
-                    type=row['type'],
-                    content=row['content'],
-                    answer=row['answer'],
+                    type=question_type,
+                    content=content,
+                    options=options if options else {},
+                    answer=str(row['answer']),
                     score=int(row['score']),
+                    difficulty=difficulty,
+                    chapter=chapter,
+                    knowledge_point=knowledge_point,
+                    analysis=analysis,
                     created_by=request.user
                 )
 
@@ -594,3 +633,23 @@ def random_exam(request):
         'question_types': question_types,
     }
     return render(request, 'teachers/random_exam.html', context)
+
+
+@login_required
+def publish_exam(request, exam_id):
+    """发布考试"""
+    exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
+    exam.is_published = True
+    exam.save()
+    messages.success(request, '考试已成功发布')
+    return redirect('teachers:dashboard')
+
+
+@login_required
+def unpublish_exam(request, exam_id):
+    """取消发布考试"""
+    exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
+    exam.is_published = False
+    exam.save()
+    messages.success(request, '考试已取消发布')
+    return redirect('teachers:dashboard')

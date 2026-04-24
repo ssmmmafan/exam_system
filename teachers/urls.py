@@ -12,4 +12,6 @@ urlpatterns = [
     path('result/<int:record_id>/', views.student_result_detail, name='student_result_detail'),
     path('import/', views.import_questions, name='import_questions'),
     path('random-exam/', views.random_exam, name='random_exam'),
+    path('exam/<int:exam_id>/publish/', views.publish_exam, name='publish_exam'),
+    path('exam/<int:exam_id>/unpublish/', views.unpublish_exam, name='unpublish_exam'),
 ]

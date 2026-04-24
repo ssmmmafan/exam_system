@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-mysql://root:zxcvbnm134@db:3306/exam_system_db}
+      - DEBUG=True
+      - SECRET_KEY=2b8c4e6f8a0b2c4d6e8f0a2b4c6d8e0f
+    volumes:
+      - .:/app
+      - static_volume:/app/staticfiles
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=zxcvbnm134
+      - MYSQL_DATABASE=exam_system_db
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
+  static_volume:

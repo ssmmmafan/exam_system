@@ -25,8 +25,12 @@ SECRET_KEY = 'django-insecure-=!0@$=@d+tr-i&kqbfp)icu#+!8s0&)*@8i(d_jf8h0i!czkuf
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = [
+    'https://myexam.serveousercontent.com',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 
 # Application definition
 
@@ -76,21 +80,27 @@ WSGI_APPLICATION = 'exam_system.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+import os
+import dj_database_url
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'exam_system_db',      # 刚才创建的数据库名
-        'USER': 'root',                  # MySQL用户名
-        'PASSWORD': 'zxcvbnm134',      # ⚠️ 这里写你安装时设置的密码
-        'HOST': '127.0.0.1',              # 或 localhost
-        'PORT': '3306',                    # MySQL默认端口
+        'NAME': 'exam_system_db',
+        'USER': 'root',
+        'PASSWORD': 'zxcvbnm134',
+        'HOST': '127.0.0.1',
+        'PORT': '3306',
         'OPTIONS': {
             'charset': 'utf8mb4',
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
         }
     }
 }
+
+# 使用环境变量中的数据库配置（Docker部署时使用）
+if os.environ.get('DATABASE_URL'):
+    DATABASES['default'] = dj_database_url.config(default=os.environ.get('DATABASE_URL'))
 
 
 # Password validation
@@ -115,3 +125,4 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'

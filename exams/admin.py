@@ -17,12 +17,12 @@ class ExamQuestionInline(admin.TabularInline):
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
     """考试管理"""
-    list_display = ('id', 'title', 'created_by', 'start_time', 'end_time', 'is_published', 'created_at')
-    list_filter = ('is_published', 'start_time', 'created_by')
+    list_display = ('id', 'title', 'start_time', 'end_time', 'created_at')
+    list_filter = ('start_time',)
     search_fields = ('title', 'description')
-    raw_id_fields = ('created_by',)  # 这是外键，可以保留
     date_hierarchy = 'start_time'
     inlines = [ExamQuestionInline]
+    exclude = ('is_published', 'created_by')
 
     fieldsets = (
         ('基本信息', {
@@ -31,10 +31,6 @@ class ExamAdmin(admin.ModelAdmin):
         ('时间设置', {
             'fields': ('start_time', 'end_time'),
             'classes': ('wide',)
-        }),
-        ('发布状态', {
-            'fields': ('is_published', 'created_by'),
-            'classes': ('collapse',)
         }),
     )
 
