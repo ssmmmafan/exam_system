@@ -1,0 +1,155 @@
+{% extends 'teachers/base_teacher.html' %}
+
+{% block title %}{% if is_edit %}编辑试题{% else %}创建试题{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>✏️ {% if is_edit %}编辑试题{% else %}创建试题{% endif %}</h2>
+    
+    <div class="card">
+        <div class="card-body">
+            <form method="post" id="questionForm">
+                {% csrf_token %}
+                
+                <!-- 题型选择 -->
+                <div class="mb-4">
+                    <label for="type" class="form-label">题型 *</label>
+                    <select class="form-select" id="type" name="type" required onchange="toggleOptions()">
+                        <option value="">请选择题型</option>
+                        {% for qtype, type_name in question_types %}
+                        <option value="{{ qtype }}" {% if is_edit and question.type == qtype %}selected{% endif %}>{{ type_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- 题目内容 -->
+                <div class="mb-4">
+                    <label for="content" class="form-label">题目内容 *</label>
+                    <textarea class="form-control" id="content" name="content" rows="4" required placeholder="请输入题目内容">{% if is_edit %}{{ question.content }}{% endif %}</textarea>
+                </div>
+                
+                <!-- 选项（只显示单选题和多选题） -->
+                <div class="mb-4" id="optionsSection" style="display: none;">
+                    <h6>选项</h6>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-primary text-white">A</span>
+                                <input type="text" class="form-control" name="option_A" placeholder="选项A" value="{% if is_edit and question.options %}{{ question.options.A }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-primary text-white">B</span>
+                                <input type="text" class="form-control" name="option_B" placeholder="选项B" value="{% if is_edit and question.options %}{{ question.options.B }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-primary text-white">C</span>
+                                <input type="text" class="form-control" name="option_C" placeholder="选项C" value="{% if is_edit and question.options %}{{ question.options.C }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-primary text-white">D</span>
+                                <input type="text" class="form-control" name="option_D" placeholder="选项D" value="{% if is_edit and question.options %}{{ question.options.D }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-primary text-white">E</span>
+                                <input type="text" class="form-control" name="option_E" placeholder="选项E（可选）" value="{% if is_edit and question.options %}{{ question.options.E }}{% endif %}">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="input-group">
+                                <span class="input-group-text bg-primary text-white">F</span>
+                                <input type="text" class="form-control" name="option_F" placeholder="选项F（可选）" value="{% if is_edit and question.options %}{{ question.options.F }}{% endif %}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 答案 -->
+                <div class="mb-4">
+                    <label for="answer" class="form-label">正确答案 *</label>
+                    <textarea class="form-control" id="answer" name="answer" rows="2" required placeholder="请输入正确答案">{% if is_edit %}{{ question.answer }}{% endif %}</textarea>
+                    <div class="form-text">
+                        <small>单选题：A/B/C/D<br>
+                        多选题：A,B,C<br>
+                        判断题：正确/错误<br>
+                        填空题：答案1;答案2（多个答案用分号分隔）<br>
+                        简答题/论述题：直接输入答案</small>
+                    </div>
+                </div>
+                
+                <!-- 答案解析 -->
+                <div class="mb-4">
+                    <label for="analysis" class="form-label">答案解析</label>
+                    <textarea class="form-control" id="analysis" name="analysis" rows="3" placeholder="请输入答案解析（可选）">{% if is_edit %}{{ question.analysis }}{% endif %}</textarea>
+                </div>
+                
+                <!-- 难度和分值 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="difficulty" class="form-label">难度 *</label>
+                        <select class="form-select" id="difficulty" name="difficulty" required>
+                            <option value="">请选择难度</option>
+                            <option value="1" {% if is_edit and question.difficulty == 1 %}selected{% endif %}>1 - 简单</option>
+                            <option value="2" {% if is_edit and question.difficulty == 2 %}selected{% endif %}>2 - 较简单</option>
+                            <option value="3" {% if is_edit and question.difficulty == 3 %}selected{% endif %}>3 - 中等</option>
+                            <option value="4" {% if is_edit and question.difficulty == 4 %}selected{% endif %}>4 - 较难</option>
+                            <option value="5" {% if is_edit and question.difficulty == 5 %}selected{% endif %}>5 - 困难</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="score" class="form-label">分值 *</label>
+                        <input type="number" class="form-control" id="score" name="score" required min="1" placeholder="请输入分值" value="{% if is_edit %}{{ question.score }}{% endif %}">
+                    </div>
+                </div>
+                
+                <!-- 知识点和章节 -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <label for="chapter" class="form-label">章节</label>
+                        <input type="text" class="form-control" id="chapter" name="chapter" placeholder="请输入章节（可选）" value="{% if is_edit %}{{ question.chapter }}{% endif %}">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="knowledge_point" class="form-label">知识点</label>
+                        <input type="text" class="form-control" id="knowledge_point" name="knowledge_point" placeholder="请输入知识点（可选）" value="{% if is_edit %}{{ question.knowledge_point }}{% endif %}">
+                    </div>
+                </div>
+                
+                <!-- 操作按钮 -->
+                <div class="d-flex justify-content-end gap-2">
+                    <a href="{% url 'teachers:question_management' %}" class="btn btn-secondary">
+                        <i class="bi bi-x"></i> 取消
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-check"></i> {% if is_edit %}保存修改{% else %}创建试题{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleOptions() {
+    const type = document.getElementById('type').value;
+    const optionsSection = document.getElementById('optionsSection');
+    
+    if (type === 'single' || type === 'multiple') {
+        optionsSection.style.display = 'block';
+    } else {
+        optionsSection.style.display = 'none';
+    }
+}
+
+// 页面加载时检查题型
+window.onload = function() {
+    toggleOptions();
+};
+</script>
+{% endblock %}

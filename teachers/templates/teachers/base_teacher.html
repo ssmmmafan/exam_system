@@ -7,76 +7,225 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <style>
+        /* 优化1：更好的移动端适配 */
+        @media (max-width: 768px) {
+            .sidebar {
+                min-height: auto;
+                position: fixed;
+                width: 250px;
+                z-index: 1050;
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            .content-wrapper {
+                margin-top: 60px;
+            }
+            .mobile-nav-toggle {
+                display: block !important;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-nav-toggle {
+                display: none !important;
+            }
+            .sidebar {
+                transform: none !important;
+            }
+        }
+        
+        /* 优化2：侧边栏样式增强 */
         .sidebar {
             min-height: 100vh;
             background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
             color: white;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
         .sidebar a {
-            color: rgba(255,255,255,0.8);
+            color: rgba(255,255,255,0.85);
             text-decoration: none;
-            padding: 12px 20px;
+            padding: 14px 20px;
             display: block;
             transition: all 0.3s;
+            border-radius: 8px;
+            margin: 4px 8px;
         }
         .sidebar a:hover {
             color: white;
-            background: rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.15);
             transform: translateX(5px);
         }
         .sidebar a.active {
             color: white;
-            background: rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.25);
             border-left: 4px solid white;
         }
         .sidebar .nav-icon {
             margin-right: 10px;
         }
+        
+        /* 优化3：卡片阴影效果 */
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+        }
+        
+        /* 优化4：按钮样式 */
+        .btn {
+            border-radius: 8px;
+            padding: 10px 20px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.875rem;
+        }
+        
+        /* 优化5：表格样式 */
+        .table {
+            font-size: 0.9rem;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            border-top: none;
+            white-space: nowrap;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .table-hover tbody tr:hover {
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+        
+        /* 优化6：统计卡片 */
         .stat-card {
             transition: transform 0.2s, box-shadow 0.2s;
             cursor: pointer;
+            border-radius: 12px;
         }
         .stat-card:hover {
             transform: translateY(-5px);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
         .hover-shadow:hover {
-            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
         }
+        
+        /* 优化7：表单样式 */
+        .form-control, .form-select {
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 1px solid #e0e0e0;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .form-control:focus, .form-select:focus {
+            border-color: #28a745;
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+        
+        /* 优化8：徽章样式 */
+        .badge {
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        /* 优化9：列表组样式 */
+        .list-group-item {
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border: 1px solid rgba(0,0,0,0.08);
+        }
+        
+        /* 优化10：空状态样式 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        .empty-state i {
+            font-size: 4rem;
+            opacity: 0.5;
+        }
+        
+        /* 优化11：内容区域背景 */
+        .content-wrapper {
+            background-color: #f5f7fa;
+            min-height: 100vh;
+        }
+        
+        /* 优化12：移动端导航切换按钮 */
+        .mobile-nav-toggle {
+            position: fixed;
+            top: 15px;
+            left: 15px;
+            z-index: 1060;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 15px;
+        }
+        
+        /* 优化13：分页样式 */
+        .pagination .page-link {
+            border-radius: 8px;
+            margin: 0 3px;
+        }
+        .pagination .page-item.active .page-link {
+            background-color: #28a745;
+            border-color: #28a745;
+        }
+        
         a.text-decoration-none {
             display: block;
-        }
-        .content-wrapper {
-            background-color: #f8f9fa;
-            min-height: 100vh;
         }
     </style>
 </head>
 <body>
+    <!-- 移动端导航切换按钮 -->
+    <button class="mobile-nav-toggle" onclick="toggleSidebar()">
+        <i class="bi bi-list fs-4"></i>
+    </button>
+    
+    <!-- 移动端侧边栏遮罩 -->
+    <div class="sidebar-overlay" onclick="toggleSidebar()" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1040;"></div>
+    
     <div class="container-fluid">
         <div class="row">
             <!-- 侧边栏 -->
-            <div class="col-md-2 p-0 sidebar">
+            <div class="col-md-2 p-0 sidebar" id="sidebar">
                 <div class="p-3">
                     <h4 class="text-center mb-4">📚 教师中心</h4>
                     <hr style="border-color: rgba(255,255,255,0.2);">
                     <a href="{% url 'teachers:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
                         <i class="bi bi-house-door nav-icon"></i> 主页
                     </a>
-                    <a href="{% url 'admin:teachers_question_changelist' %}">
-                        <i class="bi bi-question-circle nav-icon"></i> 题库管理
+                    <a href="{% url 'teachers:question_management' %}" class="{% if request.resolver_match.url_name == 'question_management' %}active{% endif %}">
+                        <i class="bi bi-question-circle nav-icon"></i> 试题管理
                     </a>
                     <a href="{% url 'teachers:import_questions' %}" class="{% if request.resolver_match.url_name == 'import_questions' %}active{% endif %}">
                         <i class="bi bi-upload nav-icon"></i> 批量导入题目
                     </a>
-                    <a href="{% url 'admin:exams_exam_changelist' %}">
-                        <i class="bi bi-pencil-square nav-icon"></i> 考试管理
+                    <a href="{% url 'teachers:exam_management' %}" class="{% if request.resolver_match.url_name == 'exam_management' %}active{% endif %}">
+                        <i class="bi bi-file-text nav-icon"></i> 考试管理
                     </a>
-                    <a href="{% url 'teachers:ongoing_exams' %}" class="{% if request.resolver_match.url_name == 'ongoing_exams' %}active{% endif %}">
-                        <i class="bi bi-play-circle nav-icon"></i> 进行中考试
-                    </a>
-                    <a href="{% url 'teachers:pending_list' %}" class="{% if request.resolver_match.url_name == 'pending_list' %}active{% endif %}">
-                        <i class="bi bi-check-circle nav-icon"></i> 待批改试卷
+                    <a href="{% url 'teachers:my_students' %}" class="{% if request.resolver_match.url_name == 'my_students' %}active{% endif %}">
+                        <i class="bi bi-people nav-icon"></i> 我的学生
                     </a>
                     <hr style="border-color: rgba(255,255,255,0.2);">
                     <a href="/">
@@ -92,9 +241,9 @@
             <div class="col-md-10 p-4 content-wrapper">
                 {% if messages %}
                     {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show">
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
                         {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                     </div>
                     {% endfor %}
                 {% endif %}
@@ -107,6 +256,28 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            sidebar.classList.toggle('show');
+            if (overlay) {
+                overlay.style.display = sidebar.classList.contains('show') ? 'block' : 'none';
+            }
+        }
+        
+        // 自动关闭移动端侧边栏当窗口调整到大屏幕时
+        window.addEventListener('resize', function() {
+            if (window.innerWidth > 768) {
+                const sidebar = document.getElementById('sidebar');
+                const overlay = document.querySelector('.sidebar-overlay');
+                sidebar.classList.remove('show');
+                if (overlay) {
+                    overlay.style.display = 'none';
+                }
+            }
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>

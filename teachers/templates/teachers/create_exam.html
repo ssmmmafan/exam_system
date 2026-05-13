@@ -1,0 +1,731 @@
+{% extends 'teachers/base_teacher.html' %}
+
+{% block title %}创建试卷{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>📄 创建试卷</h2>
+    
+    <!-- 基本信息表单 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>基本信息</h5>
+            <form method="post" id="basicInfoForm">
+                {% csrf_token %}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="title" class="form-label">考试标题 *</label>
+                        <input type="text" class="form-control" id="title" name="title" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="duration" class="form-label">考试时长（分钟） *</label>
+                        <input type="number" class="form-control" id="duration" name="duration" required min="1">
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">考试描述</label>
+                    <textarea class="form-control" id="description" name="description" rows="3"></textarea>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="start_time" class="form-label">开始时间 *</label>
+                        <input type="datetime-local" class="form-control" id="start_time" name="start_time" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="end_time" class="form-label">结束时间 *</label>
+                        <input type="datetime-local" class="form-control" id="end_time" name="end_time" required>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <h6>试卷设置</h6>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="random_questions" name="random_questions">
+                        <label class="form-check-label" for="random_questions">随机题目顺序</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="random_options" name="random_options">
+                        <label class="form-check-label" for="random_options">随机选项顺序</label>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 搜索和筛选 -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>搜索和筛选</h5>
+            <form method="GET" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">搜索</label>
+                    <div class="input-group">
+                        <input type="text" name="search" class="form-control" placeholder="搜索题目内容或知识点" value="{{ search }}">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">难度</label>
+                    <select name="difficulty" class="form-select">
+                        <option value="all">全部难度</option>
+                        {% for i in 1|ljust:5|make_list %}
+                        {% with diff=forloop.counter %}
+                        <option value="{{ diff }}" {% if difficulty == diff|stringformat:"s" %}selected{% endif %}>
+                            难度 {{ diff }}
+                        </option>
+                        {% endwith %}
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2 align-self-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-filter"></i> 筛选
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- 选择试题 -->
+    <div class="card">
+        <div class="card-body">
+            <h5>选择试题</h5>
+            <div class="text-muted mb-3">
+                选择要添加到试卷的题目，并设置每题分值。题型按考试常用顺序排列。
+            </div>
+            <form method="post" id="questionSelectionForm">
+                {% csrf_token %}
+                <!-- 隐藏字段，用于传递基本信息 -->
+                <input type="hidden" name="title" id="hidden_title">
+                <input type="hidden" name="duration" id="hidden_duration">
+                <input type="hidden" name="description" id="hidden_description">
+                <input type="hidden" name="start_time" id="hidden_start_time">
+                <input type="hidden" name="end_time" id="hidden_end_time">
+                <input type="hidden" name="random_questions" id="hidden_random_questions">
+                <input type="hidden" name="random_options" id="hidden_random_options">
+                    
+                    <!-- 单选题 -->
+                    {% if questions_by_type.single %}
+                    {% with type_info=questions_by_type.single %}
+                    {% if type_info.questions %}
+                    <div class="mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">单选题 ({{ type_info.page_obj.paginator.count }}题)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40px">选择</th>
+                                                <th style="width: 60px">ID</th>
+                                                <th>题目内容</th>
+                                                <th style="width: 80px">难度</th>
+                                                <th style="width: 80px">默认分值</th>
+                                                <th style="width: 80px">设置分值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for question in type_info.questions %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" class="form-check-input" name="question_{{ question.id }}" value="1">
+                                                </td>
+                                                <td>{{ question.id }}</td>
+                                                <td>
+                                                    <small class="text-muted">{{ question.content|truncatechars:50 }}</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{% if question.difficulty <= 2 %}success{% elif question.difficulty == 3 %}warning{% else %}danger{% endif %}">
+                                                        {{ question.difficulty }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ question.score }}</td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" name="question_{{ question.id }}_score" value="{{ question.score }}" min="1">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- 分页 -->
+                                {% if type_info.page_obj.has_other_pages %}
+                                <nav class="mt-3">
+                                    <ul class="pagination justify-content-center">
+                                        {% if type_info.page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_single={{ type_info.page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for num in type_info.page_obj.paginator.page_range %}
+                                            {% if type_info.page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                            {% elif num > type_info.page_obj.number|add:'-3' and num < type_info.page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_single={{ num }}">{{ num }}</a>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if type_info.page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_single={{ type_info.page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                    
+                    <!-- 多选题 -->
+                    {% if questions_by_type.multiple %}
+                    {% with type_info=questions_by_type.multiple %}
+                    {% if type_info.questions %}
+                    <div class="mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">多选题 ({{ type_info.page_obj.paginator.count }}题)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40px">选择</th>
+                                                <th style="width: 60px">ID</th>
+                                                <th>题目内容</th>
+                                                <th style="width: 80px">难度</th>
+                                                <th style="width: 80px">默认分值</th>
+                                                <th style="width: 80px">设置分值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for question in type_info.questions %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" class="form-check-input" name="question_{{ question.id }}" value="1">
+                                                </td>
+                                                <td>{{ question.id }}</td>
+                                                <td>
+                                                    <small>{{ question.content|truncatechars:50 }}</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{% if question.difficulty <= 2 %}success{% elif question.difficulty == 3 %}warning{% else %}danger{% endif %}">
+                                                        {{ question.difficulty }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ question.score }}</td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" name="question_{{ question.id }}_score" value="{{ question.score }}" min="1">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- 分页 -->
+                                {% if type_info.page_obj.has_other_pages %}
+                                <nav class="mt-3">
+                                    <ul class="pagination justify-content-center">
+                                        {% if type_info.page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_multiple={{ type_info.page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for num in type_info.page_obj.paginator.page_range %}
+                                            {% if type_info.page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                            {% elif num > type_info.page_obj.number|add:'-3' and num < type_info.page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_multiple={{ num }}">{{ num }}</a>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if type_info.page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_multiple={{ type_info.page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                    
+                    <!-- 判断题 -->
+                    {% if questions_by_type.judge %}
+                    {% with type_info=questions_by_type.judge %}
+                    {% if type_info.questions %}
+                    <div class="mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">判断题 ({{ type_info.page_obj.paginator.count }}题)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40px">选择</th>
+                                                <th style="width: 60px">ID</th>
+                                                <th>题目内容</th>
+                                                <th style="width: 80px">难度</th>
+                                                <th style="width: 80px">默认分值</th>
+                                                <th style="width: 80px">设置分值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for question in type_info.questions %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" class="form-check-input" name="question_{{ question.id }}" value="1">
+                                                </td>
+                                                <td>{{ question.id }}</td>
+                                                <td>
+                                                    <small>{{ question.content|truncatechars:50 }}</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{% if question.difficulty <= 2 %}success{% elif question.difficulty == 3 %}warning{% else %}danger{% endif %}">
+                                                        {{ question.difficulty }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ question.score }}</td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" name="question_{{ question.id }}_score" value="{{ question.score }}" min="1">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- 分页 -->
+                                {% if type_info.page_obj.has_other_pages %}
+                                <nav class="mt-3">
+                                    <ul class="pagination justify-content-center">
+                                        {% if type_info.page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_judge={{ type_info.page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for num in type_info.page_obj.paginator.page_range %}
+                                            {% if type_info.page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                            {% elif num > type_info.page_obj.number|add:'-3' and num < type_info.page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_judge={{ num }}">{{ num }}</a>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if type_info.page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_judge={{ type_info.page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                    
+                    <!-- 填空题 -->
+                    {% if questions_by_type.fill %}
+                    {% with type_info=questions_by_type.fill %}
+                    {% if type_info.questions %}
+                    <div class="mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">填空题 ({{ type_info.page_obj.paginator.count }}题)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40px">选择</th>
+                                                <th style="width: 60px">ID</th>
+                                                <th>题目内容</th>
+                                                <th style="width: 80px">难度</th>
+                                                <th style="width: 80px">默认分值</th>
+                                                <th style="width: 80px">设置分值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for question in type_info.questions %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" class="form-check-input" name="question_{{ question.id }}" value="1">
+                                                </td>
+                                                <td>{{ question.id }}</td>
+                                                <td>
+                                                    <small>{{ question.content|truncatechars:50 }}</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{% if question.difficulty <= 2 %}success{% elif question.difficulty == 3 %}warning{% else %}danger{% endif %}">
+                                                        {{ question.difficulty }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ question.score }}</td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" name="question_{{ question.id }}_score" value="{{ question.score }}" min="1">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- 分页 -->
+                                {% if type_info.page_obj.has_other_pages %}
+                                <nav class="mt-3">
+                                    <ul class="pagination justify-content-center">
+                                        {% if type_info.page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_fill={{ type_info.page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for num in type_info.page_obj.paginator.page_range %}
+                                            {% if type_info.page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                            {% elif num > type_info.page_obj.number|add:'-3' and num < type_info.page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_fill={{ num }}">{{ num }}</a>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if type_info.page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_fill={{ type_info.page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                    
+                    <!-- 简答题 -->
+                    {% if questions_by_type.essay %}
+                    {% with type_info=questions_by_type.essay %}
+                    {% if type_info.questions %}
+                    <div class="mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">简答题 ({{ type_info.page_obj.paginator.count }}题)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40px">选择</th>
+                                                <th style="width: 60px">ID</th>
+                                                <th>题目内容</th>
+                                                <th style="width: 80px">难度</th>
+                                                <th style="width: 80px">默认分值</th>
+                                                <th style="width: 80px">设置分值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for question in type_info.questions %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" class="form-check-input" name="question_{{ question.id }}" value="1">
+                                                </td>
+                                                <td>{{ question.id }}</td>
+                                                <td>
+                                                    <small>{{ question.content|truncatechars:50 }}</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{% if question.difficulty <= 2 %}success{% elif question.difficulty == 3 %}warning{% else %}danger{% endif %}">
+                                                        {{ question.difficulty }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ question.score }}</td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" name="question_{{ question.id }}_score" value="{{ question.score }}" min="1">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- 分页 -->
+                                {% if type_info.page_obj.has_other_pages %}
+                                <nav class="mt-3">
+                                    <ul class="pagination justify-content-center">
+                                        {% if type_info.page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_essay={{ type_info.page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for num in type_info.page_obj.paginator.page_range %}
+                                            {% if type_info.page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                            {% elif num > type_info.page_obj.number|add:'-3' and num < type_info.page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_essay={{ num }}">{{ num }}</a>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if type_info.page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_essay={{ type_info.page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                    
+                    <!-- 论述题 -->
+                    {% if questions_by_type.discussion %}
+                    {% with type_info=questions_by_type.discussion %}
+                    {% if type_info.questions %}
+                    <div class="mb-4">
+                        <div class="card">
+                            <div class="card-header bg-primary text-white">
+                                <h6 class="mb-0">论述题 ({{ type_info.page_obj.paginator.count }}题)</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 40px">选择</th>
+                                                <th style="width: 60px">ID</th>
+                                                <th>题目内容</th>
+                                                <th style="width: 80px">难度</th>
+                                                <th style="width: 80px">默认分值</th>
+                                                <th style="width: 80px">设置分值</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for question in type_info.questions %}
+                                            <tr>
+                                                <td>
+                                                    <input type="checkbox" class="form-check-input" name="question_{{ question.id }}" value="1">
+                                                </td>
+                                                <td>{{ question.id }}</td>
+                                                <td>
+                                                    <small>{{ question.content|truncatechars:50 }}</small>
+                                                </td>
+                                                <td>
+                                                    <span class="badge bg-{% if question.difficulty <= 2 %}success{% elif question.difficulty == 3 %}warning{% else %}danger{% endif %}">
+                                                        {{ question.difficulty }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ question.score }}</td>
+                                                <td>
+                                                    <input type="number" class="form-control form-control-sm" name="question_{{ question.id }}_score" value="{{ question.score }}" min="1">
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- 分页 -->
+                                {% if type_info.page_obj.has_other_pages %}
+                                <nav class="mt-3">
+                                    <ul class="pagination justify-content-center">
+                                        {% if type_info.page_obj.has_previous %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_discussion={{ type_info.page_obj.previous_page_number }}">上一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">上一页</span>
+                                        </li>
+                                        {% endif %}
+                                        
+                                        {% for num in type_info.page_obj.paginator.page_range %}
+                                            {% if type_info.page_obj.number == num %}
+                                            <li class="page-item active">
+                                                <span class="page-link">{{ num }}</span>
+                                            </li>
+                                            {% elif num > type_info.page_obj.number|add:'-3' and num < type_info.page_obj.number|add:'3' %}
+                                            <li class="page-item">
+                                                <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_discussion={{ num }}">{{ num }}</a>
+                                            </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if type_info.page_obj.has_next %}
+                                        <li class="page-item">
+                                            <a class="page-link" href="?search={{ search }}&difficulty={{ difficulty }}&page_discussion={{ type_info.page_obj.next_page_number }}">下一页</a>
+                                        </li>
+                                        {% else %}
+                                        <li class="page-item disabled">
+                                            <span class="page-link">下一页</span>
+                                        </li>
+                                        {% endif %}
+                                    </ul>
+                                </nav>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endwith %}
+                    {% endif %}
+                </div>
+                
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#previewModal">
+                        <i class="bi bi-eye"></i> 预览试卷
+                    </button>
+                    <a href="{% url 'teachers:dashboard' %}" class="btn btn-secondary">
+                        <i class="bi bi-x"></i> 取消
+                    </a>
+                    <button type="button" class="btn btn-primary" onclick="submitForm()">
+                        <i class="bi bi-check"></i> 创建试卷
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- 预览模态框 -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-labelledby="previewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="previewModalLabel">试卷预览</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>预览功能</h6>
+                    <p class="text-muted">创建试卷后，您可以在试卷列表中查看完整的试卷内容和题目顺序。</p>
+                    <p>试卷将按照以下题型顺序排列：</p>
+                    <ol>
+                        <li>单选题</li>
+                        <li>多选题</li>
+                        <li>判断题</li>
+                        <li>填空题</li>
+                        <li>简答题</li>
+                        <li>论述题</li>
+                    </ol>
+                    <p>如果选择了"随机题目顺序"，同一题型内的题目将随机排列。</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function submitForm() {
+    // 验证基本信息
+    const title = document.getElementById('title').value;
+    const duration = document.getElementById('duration').value;
+    const start_time = document.getElementById('start_time').value;
+    const end_time = document.getElementById('end_time').value;
+    
+    if (!title || !duration || !start_time || !end_time) {
+        alert('请填写完整的基本信息');
+        return;
+    }
+    
+    // 复制基本信息到隐藏字段
+    document.getElementById('hidden_title').value = title;
+    document.getElementById('hidden_duration').value = duration;
+    document.getElementById('hidden_description').value = document.getElementById('description').value;
+    document.getElementById('hidden_start_time').value = start_time;
+    document.getElementById('hidden_end_time').value = end_time;
+    document.getElementById('hidden_random_questions').value = document.getElementById('random_questions').checked ? 'on' : '';
+    document.getElementById('hidden_random_options').value = document.getElementById('random_options').checked ? 'on' : '';
+    
+    // 提交题目选择表单
+    document.getElementById('questionSelectionForm').submit();
+}
+</script>
+{% endblock %}

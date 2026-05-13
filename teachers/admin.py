@@ -39,10 +39,11 @@ class QuestionAdmin(admin.ModelAdmin):
     """试题管理"""
     form = QuestionForm
     list_display = ('id', 'type', 'short_content', 'difficulty', 'score', 'created_by', 'created_at')
-    list_filter = ('type', 'difficulty', 'created_by')
+    list_filter = ('type', 'difficulty', 'created_by', 'chapter', 'knowledge_point')
     search_fields = ('content', 'knowledge_point')
     list_per_page = 20
     date_hierarchy = 'created_at'
+    raw_id_fields = ('created_by',)
 
     fieldsets = (
         ('基本信息', {
@@ -70,3 +71,9 @@ class QuestionAdmin(admin.ModelAdmin):
         if not change:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(created_by=request.user)

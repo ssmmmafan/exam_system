@@ -4,11 +4,12 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.utils import timezone
 from django.core.paginator import Paginator
+from django.db.models import Q
 from django.core.cache import cache
 from django.http import HttpResponse
 from .models import TeacherProfile, Question, QuestionTag
 from exams.models import Exam, ExamQuestion
-from students.models import StudentExamRecord
+from students.models import StudentExamRecord, StudentProfile
 
 # 尝试导入pandas，如果失败则设置为None
 try:
@@ -44,60 +45,56 @@ def dashboard(request):
         messages.error(request, '你没有权限访问教师页面')
         return redirect('/')
 
-    # 尝试从缓存获取数据
+    # 清除缓存，确保获取最新数据
     cache_key = f'teacher_dashboard_{request.user.id}'
-    context = cache.get(cache_key)
+    cache.delete(cache_key)
+    
+    # 执行查询
+    now = timezone.now()
 
-    if context is None:
-        # 缓存不存在，执行查询
-        now = timezone.now()
+    # ✅ 优化1：使用 only() 只查询需要的字段，count() 只查ID
+    total_questions = Question.objects.filter(
+        created_by=request.user
+    ).only('id').count()
 
-        # ✅ 优化1：使用 only() 只查询需要的字段，count() 只查ID
-        total_questions = Question.objects.filter(
-            created_by=request.user
-        ).only('id').count()
+    total_exams = Exam.objects.filter(
+        created_by=request.user
+    ).only('id').count()
 
-        total_exams = Exam.objects.filter(
-            created_by=request.user
-        ).only('id').count()
+    ongoing_exams = Exam.objects.filter(
+        created_by=request.user,
+        start_time__lte=now,
+        end_time__gte=now
+    ).only('id').count()
 
-        ongoing_exams = Exam.objects.filter(
-            created_by=request.user,
-            start_time__lte=now,
-            end_time__gte=now
-        ).only('id').count()
+    # 待批改的试卷
+    pending_grading = StudentExamRecord.objects.filter(
+        exam__created_by=request.user,
+        is_finished=True,
+        score__isnull=True
+    ).only('id').count()
 
-        # 待批改的试卷
-        pending_grading = StudentExamRecord.objects.filter(
-            exam__created_by=request.user,
-            is_finished=True,
-            score__isnull=True
-        ).only('id').count()
+    # ✅ 优化2：最近数据只取5条，只查需要的字段
+    recent_exams = Exam.objects.filter(
+        created_by=request.user
+    ).only(
+        'id', 'title', 'created_at', 'is_published'
+    ).order_by('-created_at')[:5]
 
-        # ✅ 优化2：最近数据只取5条，只查需要的字段
-        recent_exams = Exam.objects.filter(
-            created_by=request.user
-        ).only(
-            'id', 'title', 'created_at', 'is_published'
-        ).order_by('-created_at')[:5]
+    recent_questions = Question.objects.filter(
+        created_by=request.user
+    ).only(
+        'id', 'type', 'content', 'created_at'
+    ).order_by('-created_at')[:5]
 
-        recent_questions = Question.objects.filter(
-            created_by=request.user
-        ).only(
-            'id', 'type', 'content', 'created_at'
-        ).order_by('-created_at')[:5]
-
-        context = {
-            'total_questions': total_questions,
-            'total_exams': total_exams,
-            'ongoing_exams': ongoing_exams,
-            'pending_grading': pending_grading,
-            'recent_exams': recent_exams,
-            'recent_questions': recent_questions,
-        }
-
-        # ✅ 优化3：缓存5分钟
-        cache.set(cache_key, context, 300)
+    context = {
+        'total_questions': total_questions,
+        'total_exams': total_exams,
+        'ongoing_exams': ongoing_exams,
+        'pending_grading': pending_grading,
+        'recent_exams': recent_exams,
+        'recent_questions': recent_questions,
+    }
 
     return render(request, 'teachers/dashboard.html', context)
 
@@ -285,24 +282,62 @@ def exam_students(request, exam_id):
 
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
 
-    records = StudentExamRecord.objects.filter(
+    # 获取教师的所有学生
+    teacher_students = StudentProfile.objects.filter(teacher=request.user).select_related('user')
+    student_users = [sp.user for sp in teacher_students]
+
+    # 获取所有学生的考试记录
+    all_records = {}
+    existing_records = StudentExamRecord.objects.filter(
         exam=exam,
-        is_finished=True
-    ).select_related('student').order_by('-submit_time')
+        student__in=student_users
+    ).select_related('student')
+
+    # 构建记录字典
+    for record in existing_records:
+        all_records[record.student.id] = record
+
+    # 为每个学生创建记录（如果不存在）
+    records = []
+    for sp in teacher_students:
+        student = sp.user
+        if student.id not in all_records:
+            # 创建未参加的记录
+            record = StudentExamRecord(
+                student=student,
+                exam=exam,
+                is_finished=False
+            )
+            record.status = '未参加'
+            record.status_badge = 'secondary'
+            record.can_grade = False
+        else:
+            record = all_records[student.id]
+            # 为已有记录添加状态
+            if record.is_finished:
+                if record.score is None:
+                    record.status = '待批改'
+                    record.status_badge = 'warning'
+                    record.can_grade = True
+                else:
+                    record.status = '已批改'
+                    record.status_badge = 'success'
+                    record.can_grade = False
+            else:
+                record.status = '进行中'
+                record.status_badge = 'info'
+                record.can_grade = False
+        records.append(record)
 
     # 统计
-    total_students = records.count()
-    completed_students = records.filter(is_finished=True).count()
-    avg_score = records.aggregate(models.Avg('score'))['score__avg'] or 0
+    total_students = len(records)
+    completed_students = sum(1 for r in records if getattr(r, 'is_finished', False))
+    scored_records = [r for r in records if getattr(r, 'score', None) is not None]
+    avg_score = sum(r.score for r in scored_records) / len(scored_records) if scored_records else 0
 
-    # 为每条记录添加状态
-    for record in records:
-        if record.score is None:
-            record.status = '待批改'
-            record.status_badge = 'warning'
-        else:
-            record.status = '已批改'
-            record.status_badge = 'success'
+    # 按状态排序：未参加 -> 进行中 -> 待批改 -> 已批改
+    status_order = {'未参加': 0, '进行中': 1, '待批改': 2, '已批改': 3}
+    records.sort(key=lambda r: status_order.get(r.status, 999))
 
     context = {
         'exam': exam,
@@ -573,7 +608,6 @@ def random_exam(request):
         duration = int(request.POST.get('duration'))
         start_time = request.POST.get('start_time')
         end_time = request.POST.get('end_time')
-        total_score = int(request.POST.get('total_score'))
         random_questions = request.POST.get('random_questions') == 'on'
         random_options = request.POST.get('random_options') == 'on'
         enable_monitoring = request.POST.get('enable_monitoring') == 'on'
@@ -588,14 +622,13 @@ def random_exam(request):
             'discussion': int(request.POST.get('discussion_count', 0)),
         }
         
-        # 创建考试
+        # 创建考试（先不设置总分，后面计算）
         exam = Exam.objects.create(
             title=title,
             description=description,
             duration=duration,
             start_time=start_time,
             end_time=end_time,
-            total_score=total_score,
             is_published=False,
             random_questions=random_questions,
             random_options=random_options,
@@ -603,7 +636,8 @@ def random_exam(request):
             created_by=request.user
         )
         
-        # 随机选择题目
+        # 随机选择题目并计算总分
+        total_score = 0
         order = 1
         for q_type, count in question_config.items():
             if count > 0:
@@ -621,9 +655,18 @@ def random_exam(request):
                         order=order,
                         score=question.score
                     )
+                    total_score += question.score
                     order += 1
         
-        messages.success(request, '随机组卷成功！')
+        # 更新考试总分
+        exam.total_score = total_score
+        exam.save()
+        
+        # 清除教师仪表板缓存
+        cache_key = f'teacher_dashboard_{request.user.id}'
+        cache.delete(cache_key)
+        
+        messages.success(request, f'随机组卷成功！总分 {total_score}')
         return redirect('teachers:dashboard')
     
     # 获取题型列表
@@ -641,6 +684,9 @@ def publish_exam(request, exam_id):
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
     exam.is_published = True
     exam.save()
+    # 清除教师仪表板缓存
+    cache_key = f'teacher_dashboard_{request.user.id}'
+    cache.delete(cache_key)
     messages.success(request, '考试已成功发布')
     return redirect('teachers:dashboard')
 
@@ -651,5 +697,506 @@ def unpublish_exam(request, exam_id):
     exam = get_object_or_404(Exam, id=exam_id, created_by=request.user)
     exam.is_published = False
     exam.save()
+    # 清除教师仪表板缓存
+    cache_key = f'teacher_dashboard_{request.user.id}'
+    cache.delete(cache_key)
     messages.success(request, '考试已取消发布')
     return redirect('teachers:dashboard')
+
+
+@login_required
+def question_classification(request):
+    """按题型分类显示题目"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+
+    question_type = request.GET.get('type', 'all')
+    question_types = Question.QUESTION_TYPES
+    questions_query = Question.objects.filter(created_by=request.user)
+    
+    if question_type != 'all':
+        questions_query = questions_query.filter(type=question_type)
+    
+    questions_by_type = {}
+    for qtype, type_name in question_types:
+        questions_by_type[qtype] = {
+            'name': type_name,
+            'count': questions_query.filter(type=qtype).count(),
+            'questions': questions_query.filter(type=qtype).order_by('-created_at')[:10]
+        }
+    
+    if question_type != 'all':
+        current_type_questions = questions_query.order_by('-created_at')
+        paginator = Paginator(current_type_questions, 20)
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+    else:
+        page_obj = None
+    
+    total_questions = questions_query.count()
+    type_distribution = [
+        {'type': qtype, 'name': type_name, 'count': questions_by_type[qtype]['count']}
+        for qtype, type_name in question_types
+    ]
+    
+    context = {
+        'question_types': question_types,
+        'questions_by_type': questions_by_type,
+        'current_type': question_type,
+        'page_obj': page_obj,
+        'total_questions': total_questions,
+        'type_distribution': type_distribution,
+    }
+    
+    return render(request, 'teachers/question_classification.html', context)
+
+
+@login_required
+def my_students(request):
+    """查看我负责的学生"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    students = StudentProfile.objects.filter(teacher=request.user).select_related('user').order_by('-id')
+    
+    paginator = Paginator(students, 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    total_students = students.count()
+    
+    context = {
+        'page_obj': page_obj,
+        'total_students': total_students,
+    }
+    
+    return render(request, 'teachers/my_students.html', context)
+
+
+@login_required
+def exam_management(request):
+    """考试管理页面 - 整合所有考试相关功能"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    now = timezone.now()
+    
+    # 所有考试
+    all_exams = Exam.objects.filter(created_by=request.user).order_by('-created_at')
+    
+    # 进行中的考试
+    ongoing_exams = Exam.objects.filter(
+        created_by=request.user,
+        start_time__lte=now,
+        end_time__gte=now,
+        is_published=True
+    ).order_by('start_time')
+    
+    # 即将开始的考试
+    upcoming_exams = Exam.objects.filter(
+        created_by=request.user,
+        start_time__gt=now,
+        is_published=True
+    ).order_by('start_time')
+    
+    # 已结束的考试
+    ended_exams = Exam.objects.filter(
+        created_by=request.user,
+        end_time__lt=now,
+        is_published=True
+    ).order_by('-end_time')
+    
+    # 待批改的试卷
+    pending_records = StudentExamRecord.objects.filter(
+        exam__created_by=request.user,
+        is_finished=True,
+        score__isnull=True
+    ).select_related('student', 'exam').order_by('submit_time')
+    
+    context = {
+        'all_exams': all_exams,
+        'ongoing_exams': ongoing_exams,
+        'upcoming_exams': upcoming_exams,
+        'ended_exams': ended_exams,
+        'pending_records': pending_records,
+        'now': now,
+    }
+    
+    return render(request, 'teachers/exam_management.html', context)
+
+
+@login_required
+def question_management(request):
+    """试题管理主页面"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    # 获取URL参数
+    question_type = request.GET.get('type', 'all')
+    search = request.GET.get('search', '')
+    difficulty = request.GET.get('difficulty', 'all')
+    
+    # 构建查询
+    questions_query = Question.objects.filter(created_by=request.user)
+    
+    # 按类型筛选
+    if question_type != 'all':
+        questions_query = questions_query.filter(type=question_type)
+    
+    # 按难度筛选
+    if difficulty != 'all' and difficulty.isdigit():
+        questions_query = questions_query.filter(difficulty=int(difficulty))
+    
+    # 搜索
+    if search:
+        questions_query = questions_query.filter(
+            Q(content__icontains=search) | 
+            Q(knowledge_point__icontains=search)
+        )
+    
+    # 分页
+    paginator = Paginator(questions_query.order_by('-created_at'), 20)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # 统计数据
+    total_questions = questions_query.count()
+    type_stats = {}
+    for qtype, type_name in Question.QUESTION_TYPES:
+        type_stats[qtype] = {
+            'name': type_name,
+            'count': questions_query.filter(type=qtype).count()
+        }
+    
+    context = {
+        'page_obj': page_obj,
+        'total_questions': total_questions,
+        'question_types': Question.QUESTION_TYPES,
+        'type_stats': type_stats,
+        'current_type': question_type,
+        'current_difficulty': difficulty,
+        'search': search,
+    }
+    
+    return render(request, 'teachers/question_management.html', context)
+
+
+@login_required
+def create_exam(request):
+    """创建试卷（按分类选择试题）"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    if request.method == 'POST':
+        # 处理表单提交
+        title = request.POST.get('title')
+        description = request.POST.get('description')
+        duration = request.POST.get('duration')
+        start_time = request.POST.get('start_time')
+        end_time = request.POST.get('end_time')
+        
+        # 创建考试
+        exam = Exam.objects.create(
+            title=title,
+            description=description,
+            duration=duration,
+            start_time=start_time,
+            end_time=end_time,
+            created_by=request.user
+        )
+        
+        # 处理题目选择
+        total_score = 0
+        question_order = 1
+        
+        # 遍历所有提交的题目ID和分值
+        for key, value in request.POST.items():
+            if key.startswith('question_') and '_score' not in key:
+                question_id = key.split('_')[1]
+                score_key = f'question_{question_id}_score'
+                score = request.POST.get(score_key, 0)
+                
+                if score.isdigit():
+                    score = int(score)
+                    total_score += score
+                    
+                    # 添加题目到考试
+                    ExamQuestion.objects.create(
+                        exam=exam,
+                        question_id=question_id,
+                        order=question_order,
+                        score=score
+                    )
+                    question_order += 1
+        
+        # 更新总分
+        exam.total_score = total_score
+        exam.save()
+        
+        # 清除教师仪表板缓存
+        cache_key = f'teacher_dashboard_{request.user.id}'
+        cache.delete(cache_key)
+        
+        messages.success(request, f'试卷 "{title}" 创建成功，共 {question_order-1} 道题目，总分 {total_score}')
+        return redirect('teachers:dashboard')
+    
+    # GET请求：显示表单
+    question_types = Question.QUESTION_TYPES
+    
+    # 获取搜索和筛选参数
+    search = request.GET.get('search', '')
+    difficulty = request.GET.get('difficulty', 'all')
+    
+    # 按题型获取题目（带分页）
+    questions_by_type = {}
+    for qtype, type_name in question_types:
+        # 构建查询
+        query = Question.objects.filter(
+            created_by=request.user,
+            type=qtype
+        )
+        
+        # 搜索
+        if search:
+            query = query.filter(
+                Q(content__icontains=search) | 
+                Q(knowledge_point__icontains=search)
+            )
+        
+        # 难度筛选
+        if difficulty != 'all' and difficulty.isdigit():
+            query = query.filter(difficulty=int(difficulty))
+        
+        # 分页
+        paginator = Paginator(query.order_by('-created_at'), 20)
+        page_number = request.GET.get(f'page_{qtype}')
+        page_obj = paginator.get_page(page_number)
+        
+        questions_by_type[qtype] = {
+            'name': type_name,
+            'questions': page_obj,
+            'paginator': paginator,
+            'page_obj': page_obj
+        }
+    
+    # 定义题型显示顺序（按考试常用顺序）
+    exam_question_order = [
+        {'type': 'single', 'name': '单选题'},
+        {'type': 'multiple', 'name': '多选题'},
+        {'type': 'judge', 'name': '判断题'},
+        {'type': 'fill', 'name': '填空题'},
+        {'type': 'essay', 'name': '简答题'},
+        {'type': 'discussion', 'name': '论述题'}
+    ]
+    
+    context = {
+        'question_types': question_types,
+        'questions_by_type': questions_by_type,
+        'search': search,
+        'difficulty': difficulty,
+        'exam_question_order': exam_question_order,
+    }
+    
+    return render(request, 'teachers/create_exam.html', context)
+
+
+@login_required
+def create_question(request):
+    """创建试题"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    if request.method == 'POST':
+        # 获取表单数据
+        qtype = request.POST.get('type')
+        content = request.POST.get('content')
+        score = request.POST.get('score')
+        difficulty = request.POST.get('difficulty')
+        answer = request.POST.get('answer')
+        analysis = request.POST.get('analysis')
+        chapter = request.POST.get('chapter')
+        knowledge_point = request.POST.get('knowledge_point')
+        
+        # 处理选项（JSON格式）
+        options = {}
+        if qtype in ['single', 'multiple']:
+            # 收集选项
+            for i, letter in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
+                option_text = request.POST.get(f'option_{letter}')
+                if option_text:
+                    options[letter] = option_text
+        
+        # 验证数据
+        if not all([qtype, content, score, difficulty, answer]):
+            messages.error(request, '请填写完整的题目信息')
+            return redirect('teachers:create_question')
+        
+        try:
+            score = int(score)
+            difficulty = int(difficulty)
+        except ValueError:
+            messages.error(request, '分值和难度必须是数字')
+            return redirect('teachers:create_question')
+        
+        # 创建试题
+        question = Question.objects.create(
+            type=qtype,
+            content=content,
+            options=options if options else None,
+            answer=answer,
+            analysis=analysis,
+            score=score,
+            difficulty=difficulty,
+            chapter=chapter,
+            knowledge_point=knowledge_point,
+            created_by=request.user
+        )
+        
+        # 清除缓存
+        cache_key = f'teacher_dashboard_{request.user.id}'
+        cache.delete(cache_key)
+        
+        messages.success(request, f'试题创建成功！ID: {question.id}')
+        return redirect('teachers:question_management')
+    
+    # GET请求：显示表单
+    question_types = Question.QUESTION_TYPES
+    
+    context = {
+        'question_types': question_types,
+    }
+    return render(request, 'teachers/create_question.html', context)
+
+
+@login_required
+def edit_question(request, question_id):
+    """编辑试题"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    # 获取试题，确保是当前教师创建的
+    question = get_object_or_404(Question, id=question_id, created_by=request.user)
+    
+    if request.method == 'POST':
+        # 获取表单数据
+        qtype = request.POST.get('type')
+        content = request.POST.get('content')
+        score = request.POST.get('score')
+        difficulty = request.POST.get('difficulty')
+        answer = request.POST.get('answer')
+        analysis = request.POST.get('analysis')
+        chapter = request.POST.get('chapter')
+        knowledge_point = request.POST.get('knowledge_point')
+        
+        # 处理选项（JSON格式）
+        options = {}
+        if qtype in ['single', 'multiple']:
+            # 收集选项
+            for i, letter in enumerate(['A', 'B', 'C', 'D', 'E', 'F']):
+                option_text = request.POST.get(f'option_{letter}')
+                if option_text:
+                    options[letter] = option_text
+        
+        # 验证数据
+        if not all([qtype, content, score, difficulty, answer]):
+            messages.error(request, '请填写完整的题目信息')
+            return redirect('teachers:edit_question', question_id=question.id)
+        
+        try:
+            score = int(score)
+            difficulty = int(difficulty)
+        except ValueError:
+            messages.error(request, '分值和难度必须是数字')
+            return redirect('teachers:edit_question', question_id=question.id)
+        
+        # 更新试题
+        question.type = qtype
+        question.content = content
+        question.options = options if options else None
+        question.answer = answer
+        question.analysis = analysis
+        question.score = score
+        question.difficulty = difficulty
+        question.chapter = chapter
+        question.knowledge_point = knowledge_point
+        question.save()
+        
+        # 清除缓存
+        cache_key = f'teacher_dashboard_{request.user.id}'
+        cache.delete(cache_key)
+        
+        messages.success(request, f'试题编辑成功！ID: {question.id}')
+        return redirect('teachers:question_management')
+    
+    # GET请求：显示表单
+    question_types = Question.QUESTION_TYPES
+    
+    context = {
+        'question_types': question_types,
+        'question': question,
+        'is_edit': True,
+    }
+    return render(request, 'teachers/create_question.html', context)
+
+
+@login_required
+def delete_question(request, question_id):
+    """删除试题"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    # 获取试题，确保是当前教师创建的
+    question = get_object_or_404(Question, id=question_id, created_by=request.user)
+    
+    if request.method == 'POST':
+        question.delete()
+        
+        # 清除相关缓存
+        cache_key = f'teacher_dashboard_{request.user.id}'
+        cache.delete(cache_key)
+        
+        messages.success(request, '试题删除成功')
+        return redirect('teachers:question_management')
+    
+    return render(request, 'teachers/delete_question.html', {
+        'question': question
+    })
+
+
+@login_required
+def batch_delete_questions(request):
+    """批量删除试题"""
+    if not is_teacher(request.user):
+        messages.error(request, '你没有权限访问')
+        return redirect('/')
+    
+    if request.method == 'POST':
+        # 获取逗号分隔的字符串并转换为列表
+        question_ids_str = request.POST.get('question_ids', '')
+        question_ids = [id.strip() for id in question_ids_str.split(',') if id.strip()]
+        
+        if question_ids:
+            # 只删除当前用户创建的试题
+            questions = Question.objects.filter(
+                id__in=question_ids,
+                created_by=request.user
+            )
+            deleted_count = questions.delete()[0]
+            
+            # 清除相关缓存
+            cache_key = f'teacher_dashboard_{request.user.id}'
+            cache.delete(cache_key)
+            
+            messages.success(request, f'成功删除 {deleted_count} 道试题')
+        else:
+            messages.warning(request, '请至少选择一道试题')
+    
+    return redirect('teachers:question_management')

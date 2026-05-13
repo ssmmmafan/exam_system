@@ -17,12 +17,12 @@ class ExamQuestionInline(admin.TabularInline):
 @admin.register(Exam)
 class ExamAdmin(admin.ModelAdmin):
     """考试管理"""
-    list_display = ('id', 'title', 'start_time', 'end_time', 'created_at')
-    list_filter = ('start_time',)
+    list_display = ('id', 'title', 'start_time', 'end_time', 'created_by', 'created_at')
+    list_filter = ('start_time', 'created_by')
     search_fields = ('title', 'description')
     date_hierarchy = 'start_time'
     inlines = [ExamQuestionInline]
-    exclude = ('is_published', 'created_by')
+    raw_id_fields = ('created_by',)
 
     fieldsets = (
         ('基本信息', {
@@ -39,6 +39,12 @@ class ExamAdmin(admin.ModelAdmin):
         if not change:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        return qs.filter(created_by=request.user)
 
 
 @admin.register(ExamQuestion)

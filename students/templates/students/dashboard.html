@@ -50,7 +50,15 @@
                                 <small class="text-danger">截止：{{ exam.end_time|date:'m-d H:i' }}</small>
                             </div>
                             <p class="text-muted small">{{ exam.description|truncatechars:50 }}</p>
-                            <a href="{% url 'students:exam_detail' exam.id %}" class="btn btn-sm btn-primary">进入考试</a>
+                            <p class="text-muted small">开始时间：{{ exam.start_time|date:'Y-m-d H:i' }}</p>
+                            {% if now < exam.start_time %}
+                                <span class="badge bg-info">考试未开始</span>
+                            {% elif now > exam.end_time %}
+                                <span class="badge bg-danger">考试已结束</span>
+                            {% else %}
+                                <a href="{% url 'students:exam_detail' exam.id %}" class="btn btn-sm btn-primary">进入考试</a>
+                            {% endif %}
+                            <p class="text-muted small">当前时间：{{ now|date:'Y-m-d H:i:s' }}</p>
                         </div>
                     </div>
                     {% endfor %}
@@ -66,7 +74,21 @@
                 <h5 class="mb-0">📚 历史考试</h5>
             </div>
             <div class="card-body">
-                {% if completed_records %}
+                {% if completed_records or missed_exams %}
+                    <!-- 已结束但未参加的考试 -->
+                    {% for exam in missed_exams %}
+                    <div class="card mb-2">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <h6>{{ exam.title }}</h6>
+                                <span class="badge bg-secondary">未参加</span>
+                            </div>
+                            <small class="text-muted">结束时间：{{ exam.end_time|date:'Y-m-d H:i' }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <!-- 已完成的考试记录 -->
                     {% for record in completed_records %}
                     <div class="card mb-2">
                         <div class="card-body">

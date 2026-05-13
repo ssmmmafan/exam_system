@@ -11,6 +11,14 @@ class StudentProfile(models.Model):
     major = models.CharField('专业', max_length=100, blank=True)
     enrollment_year = models.IntegerField('入学年份', null=True, blank=True)
     phone = models.CharField('电话', max_length=11, blank=True)
+    teacher = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_students',
+        verbose_name='负责教师'
+    )
 
     class Meta:
         db_table = 'student_profile'

@@ -3,118 +3,206 @@
 {% block title %}教师主页{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>欢迎回来，{{ request.user.username }} 老师</h2>
+<div class="container-fluid py-3">
+    <!-- 欢迎信息 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-1">欢迎回来，{{ request.user.username }} 老师</h2>
+            <p class="text-muted mb-0">今天是美好的一天！</p>
+        </div>
+    </div>
     
-    <!-- 统计卡片 - 可点击 -->
-    <div class="row mt-4">
-        <div class="col-md-3 mb-3">
-            <a href="{% url 'admin:teachers_question_changelist' %}" class="text-decoration-none">
-                <div class="card stat-card bg-primary text-white hover-shadow">
-                    <div class="card-body">
-                        <h6>我的试题</h6>
-                        <h2 class="display-6">{{ total_questions }}</h2>
-                        <span>管理试题 →</span>
+    <!-- 快捷操作入口 - 响应式优化 -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex align-items-center">
+                    <i class="bi bi-lightning-fill me-2"></i>
+                    <h5 class="mb-0">快捷操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 text-center">
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:create_question' %}" class="btn btn-primary w-100 py-3">
+                                <i class="bi bi-plus-circle fs-4 d-block mb-1"></i>
+                                <small>创建试题</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:question_classification' %}" class="btn btn-outline-success w-100 py-3">
+                                <i class="bi bi-grid fs-4 d-block mb-1"></i>
+                                <small>试题分类</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:create_exam' %}" class="btn btn-outline-info w-100 py-3">
+                                <i class="bi bi-file-plus fs-4 d-block mb-1"></i>
+                                <small>创建试卷</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:random_exam' %}" class="btn btn-outline-warning w-100 py-3">
+                                <i class="bi bi-shuffle fs-4 d-block mb-1"></i>
+                                <small>随机组卷</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:import_questions' %}" class="btn btn-outline-secondary w-100 py-3">
+                                <i class="bi bi-upload fs-4 d-block mb-1"></i>
+                                <small>批量导入</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:my_students' %}" class="btn btn-outline-danger w-100 py-3">
+                                <i class="bi bi-people fs-4 d-block mb-1"></i>
+                                <small>我的学生</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 统计卡片 - 响应式优化 -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <a href="{% url 'teachers:question_management' %}" class="text-decoration-none">
+                <div class="card stat-card bg-gradient-primary text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-question-circle fs-1 opacity-50"></i>
+                        <h6 class="mt-2 mb-1">我的试题</h6>
+                        <h2 class="mb-0">{{ total_questions }}</h2>
+                        <small>查看详情 →</small>
                     </div>
                 </div>
             </a>
         </div>
-        <div class="col-md-3 mb-3">
-            <a href="{% url 'admin:exams_exam_changelist' %}" class="text-decoration-none">
-                <div class="card stat-card bg-success text-white hover-shadow">
-                    <div class="card-body">
-                        <h6>我的考试</h6>
-                        <h2 class="display-6">{{ total_exams }}</h2>
-                        <span>管理考试 →</span>
+        <div class="col-6 col-lg-3">
+            <a href="{% url 'teachers:exam_management' %}" class="text-decoration-none">
+                <div class="card stat-card bg-gradient-success text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-file-text fs-1 opacity-50"></i>
+                        <h6 class="mt-2 mb-1">我的考试</h6>
+                        <h2 class="mb-0">{{ total_exams }}</h2>
+                        <small>查看详情 →</small>
                     </div>
                 </div>
             </a>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col-6 col-lg-3">
             <a href="{% url 'teachers:ongoing_exams' %}" class="text-decoration-none">
-                <div class="card stat-card bg-info text-white hover-shadow">
-                    <div class="card-body">
-                        <h6>进行中</h6>
-                        <h2 class="display-6">{{ ongoing_exams }}</h2>
-                        <span>查看进行中考试 →</span>
+                <div class="card stat-card bg-gradient-info text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-play-circle fs-1 opacity-50"></i>
+                        <h6 class="mt-2 mb-1">进行中</h6>
+                        <h2 class="mb-0">{{ ongoing_exams }}</h2>
+                        <small>查看进行中 →</small>
                     </div>
                 </div>
             </a>
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col-6 col-lg-3">
             <a href="{% url 'teachers:pending_list' %}" class="text-decoration-none">
-                <div class="card stat-card bg-warning text-white hover-shadow">
-                    <div class="card-body">
-                        <h6>待批改</h6>
-                        <h2 class="display-6">{{ pending_grading }}</h2>
-                        <span>批改试卷 →</span>
+                <div class="card stat-card bg-gradient-warning text-white h-100">
+                    <div class="card-body text-center">
+                        <i class="bi bi-check2-circle fs-1 opacity-50"></i>
+                        <h6 class="mt-2 mb-1">待批改</h6>
+                        <h2 class="mb-0">{{ pending_grading }}</h2>
+                        <small>批改试卷 →</small>
                     </div>
                 </div>
             </a>
         </div>
     </div>
     
-    <!-- 最近创建的考试 -->
-    <div class="row mt-4">
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">📋 最近创建的考试</h5>
+    <!-- 最近创建 - 响应式优化 -->
+    <div class="row g-3">
+        <!-- 最近创建的考试 -->
+        <div class="col-lg-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-file-earmark-text me-2"></i>最近创建的考试</span>
+                    <a href="{% url 'teachers:create_exam' %}" class="btn btn-sm btn-light">
+                        <i class="bi bi-plus"></i> 创建
+                    </a>
                 </div>
                 <div class="card-body">
                     {% if recent_exams %}
-                    <div class="list-group">
+                    <div class="list-group list-group-flush">
                         {% for exam in recent_exams %}
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between">
-                                <h6>{{ exam.title }}</h6>
-                                <small>{{ exam.created_at|date:'m-d H:i' }}</small>
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div class="me-auto">
+                                    <h6 class="mb-1">{{ exam.title }}</h6>
+                                    <small class="text-muted">{{ exam.created_at|date:'Y-m-d H:i' }}</small>
+                                </div>
+                                <span class="badge {% if exam.is_published %}bg-success{% else %}bg-secondary{% endif %} rounded-pill">
+                                    {% if exam.is_published %}已发布{% else %}未发布{% endif %}
+                                </span>
                             </div>
-                            <span class="badge {% if exam.is_published %}bg-success{% else %}bg-secondary{% endif %}">
-                                {% if exam.is_published %}已发布{% else %}未发布{% endif %}
-                            </span>
-                            {% if exam.is_published %}
-                            <a href="{% url 'teachers:unpublish_exam' exam.id %}" class="btn btn-sm btn-warning mt-2">
-                                取消发布
-                            </a>
-                            {% else %}
-                            <a href="{% url 'teachers:publish_exam' exam.id %}" class="btn btn-sm btn-success mt-2">
-                                发布考试
-                            </a>
-                            {% endif %}
-                            <a href="{% url 'teachers:exam_students' exam.id %}" class="btn btn-sm btn-outline-primary mt-2">
-                                查看考生
-                            </a>
+                            <div class="btn-group btn-group-sm">
+                                {% if exam.is_published %}
+                                <a href="{% url 'teachers:unpublish_exam' exam.id %}" class="btn btn-outline-warning">
+                                    <i class="bi bi-x-circle"></i> 取消发布
+                                </a>
+                                {% else %}
+                                <a href="{% url 'teachers:publish_exam' exam.id %}" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> 发布
+                                </a>
+                                {% endif %}
+                                <a href="{% url 'teachers:exam_students' exam.id %}" class="btn btn-outline-primary">
+                                    <i class="bi bi-people"></i> 考生
+                                </a>
+                            </div>
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="text-muted">暂无创建的考试</p>
+                    <div class="empty-state py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2 mb-2 text-muted">暂无创建的考试</p>
+                        <a href="{% url 'teachers:create_exam' %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-plus-circle"></i> 创建第一个考试
+                        </a>
+                    </div>
                     {% endif %}
                 </div>
             </div>
         </div>
         
         <!-- 最近创建的试题 -->
-        <div class="col-md-6">
-            <div class="card">
-                <div class="card-header bg-success text-white">
-                    <h5 class="mb-0">✏️ 最近创建的试题</h5>
+        <div class="col-lg-6 mb-3">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white d-flex align-items-center justify-content-between">
+                    <span><i class="bi bi-pencil-square me-2"></i>最近创建的试题</span>
+                    <a href="{% url 'teachers:create_question' %}" class="btn btn-sm btn-light">
+                        <i class="bi bi-plus"></i> 创建
+                    </a>
                 </div>
                 <div class="card-body">
                     {% if recent_questions %}
-                    <div class="list-group">
+                    <div class="list-group list-group-flush">
                         {% for question in recent_questions %}
-                        <div class="list-group-item">
-                            <div class="d-flex justify-content-between">
-                                <span>[{{ question.get_type_display }}] {{ question.content|truncatechars:30 }}</span>
-                                <small>{{ question.created_at|date:'m-d H:i' }}</small>
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="me-auto">
+                                    <span class="badge bg-info rounded-pill mb-1">{{ question.get_type_display }}</span>
+                                    <p class="mb-1 small">{{ question.content|truncatechars:40 }}</p>
+                                    <small class="text-muted">{{ question.created_at|date:'Y-m-d H:i' }}</small>
+                                </div>
                             </div>
                         </div>
                         {% endfor %}
                     </div>
                     {% else %}
-                    <p class="text-muted">暂无创建的试题</p>
+                    <div class="empty-state py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2 mb-2 text-muted">暂无创建的试题</p>
+                        <a href="{% url 'teachers:create_question' %}" class="btn btn-success btn-sm">
+                            <i class="bi bi-plus-circle"></i> 创建第一道试题
+                        </a>
+                    </div>
                     {% endif %}
                 </div>
             </div>
@@ -123,19 +211,17 @@
 </div>
 
 <style>
-    .stat-card {
-        transition: transform 0.2s, box-shadow 0.2s;
-        cursor: pointer;
-    }
-    .stat-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    }
-    .hover-shadow:hover {
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-    }
-    a.text-decoration-none {
-        display: block;
-    }
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #0d6efd 0%, #0a4ed8 100%);
+}
+.bg-gradient-success {
+    background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+}
+.bg-gradient-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);
+}
+.bg-gradient-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+}
 </style>
 {% endblock %}

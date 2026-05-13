@@ -14,4 +14,13 @@ urlpatterns = [
     path('random-exam/', views.random_exam, name='random_exam'),
     path('exam/<int:exam_id>/publish/', views.publish_exam, name='publish_exam'),
     path('exam/<int:exam_id>/unpublish/', views.unpublish_exam, name='unpublish_exam'),
+    path('questions/classification/', views.question_classification, name='question_classification'),
+    path('questions/management/', views.question_management, name='question_management'),
+    path('question/create/', views.create_question, name='create_question'),
+    path('question/<int:question_id>/edit/', views.edit_question, name='edit_question'),
+    path('question/<int:question_id>/delete/', views.delete_question, name='delete_question'),
+    path('questions/batch_delete/', views.batch_delete_questions, name='batch_delete_questions'),
+    path('exam/create/', views.create_exam, name='create_exam'),
+    path('exam/management/', views.exam_management, name='exam_management'),
+    path('students/', views.my_students, name='my_students'),
 ]

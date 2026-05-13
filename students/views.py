@@ -122,67 +122,59 @@ def register_view(request):
 
 @login_required
 def dashboard(request):
-    """学生主页：显示待考、已考列表（带缓存优化）"""
+    """学生主页：显示待考、已考列表"""
     if request.user.is_staff:
         messages.warning(request, '教师账号请使用教师后台')
         return redirect('/admin/')
 
     now = timezone.now()
 
-    # 尝试从缓存获取数据
-    cache_key = f'student_dashboard_{request.user.id}'
-    context = cache.get(cache_key)
-
-    if not context:
-        # 缓存不存在，执行查询
-        print(f"从数据库查询数据 for user {request.user.id}")  # 调试用
-
-        # 待参加的考试 - 使用子查询优化
-        completed_exam_ids = StudentExamRecord.objects.filter(
-            student=request.user,
-            is_finished=True
-        ).values_list('exam_id', flat=True)
-
-        upcoming_exams = Exam.objects.filter(
-            start_time__lte=now,
-            end_time__gte=now,
-            is_published=True
-        ).exclude(
-            id__in=completed_exam_ids
-        ).only(
-            'id', 'title', 'description', 'start_time', 'end_time', 'duration', 'total_score'
-        ).order_by('start_time')[:10]
-
-        # 已完成的考试
-        completed_records = StudentExamRecord.objects.filter(
-            student=request.user,
-            is_finished=True
-        ).select_related('exam').only(
-            'id', 'score', 'submit_time', 'exam__id', 'exam__title', 'exam__total_score'
-        ).order_by('-submit_time')[:10]
-
-        # 获取或创建学生档案
-        try:
-            profile = StudentProfile.objects.get(user=request.user)
-        except StudentProfile.DoesNotExist:
-            profile = StudentProfile.objects.create(
-                user=request.user,
-                student_id=f'TEMP{request.user.id}'
-            )
-
-        # 准备上下文数据
-        context = {
-            'upcoming_exams': upcoming_exams,
-            'completed_records': completed_records,
-            'profile': profile,
-            'now': now,
-        }
-
-        # 存入缓存，有效期5分钟（300秒）
-        cache.set(cache_key, context, 300)
-        print(f"数据已缓存 for user {request.user.id}")
-    else:
-        print(f"从缓存读取数据 for user {request.user.id}")
+    # 获取所有已发布的考试
+    all_published_exams = Exam.objects.filter(is_published=True)
+    
+    # 获取学生已完成的考试ID
+    completed_exam_ids = StudentExamRecord.objects.filter(
+        student=request.user,
+        is_finished=True
+    ).values_list('exam_id', flat=True)
+    
+    # 待参加的考试（未完成且在时间范围内）
+    upcoming_exams = all_published_exams.exclude(
+        id__in=completed_exam_ids
+    ).filter(
+        end_time__gte=now
+    ).order_by('start_time')
+    
+    # 已结束但未参加的考试（未完成但已过期）
+    missed_exams = all_published_exams.exclude(
+        id__in=completed_exam_ids
+    ).filter(
+        end_time__lt=now
+    ).order_by('-end_time')
+    
+    # 已完成的考试记录
+    completed_records = StudentExamRecord.objects.filter(
+        student=request.user,
+        is_finished=True
+    ).select_related('exam').order_by('-submit_time')
+    
+    # 获取或创建学生档案
+    try:
+        student_profile = StudentProfile.objects.get(user=request.user)
+    except StudentProfile.DoesNotExist:
+        student_profile = StudentProfile.objects.create(
+            user=request.user,
+            student_id=f'TEMP{request.user.id}'
+        )
+    
+    # 准备上下文数据
+    context = {
+        'upcoming_exams': upcoming_exams,
+        'missed_exams': missed_exams,
+        'completed_records': completed_records,
+        'profile': student_profile,
+        'now': now,
+    }
 
     return render(request, 'students/dashboard.html', context)
 @login_required
