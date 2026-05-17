@@ -1,19 +1,20 @@
-version: '3.8'
-
 services:
   web:
     build: .
     ports:
       - "8000:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
-      - DATABASE_URL=${DATABASE_URL:-mysql://root:zxcvbnm134@db:3306/exam_system_db}
       - DEBUG=True
       - SECRET_KEY=2b8c4e6f8a0b2c4d6e8f0a2b4c6d8e0f
+      - DOCKER_DEPLOY=True
+      - ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
+    working_dir: /app
 
   db:
     image: mysql:8.0
@@ -24,7 +25,12 @@ services:
       - MYSQL_DATABASE=exam_system_db
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
-  mysql_data:
   static_volume:
+  mysql_data:

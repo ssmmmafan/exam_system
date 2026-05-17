@@ -87,6 +87,59 @@ def dashboard(request):
         'id', 'type', 'content', 'created_at'
     ).order_by('-created_at')[:5]
 
+    import json
+    
+    # 获取进行中的考试详情
+    ongoing_exams_list = Exam.objects.filter(
+        created_by=request.user,
+        start_time__lte=now,
+        end_time__gte=now
+    ).only('id', 'title', 'end_time')
+    
+    ongoing_exams_data = []
+    for exam in ongoing_exams_list:
+        student_count = StudentExamRecord.objects.filter(exam=exam).count()
+        ongoing_exams_data.append({
+            'id': exam.id,
+            'title': exam.title,
+            'end_time': exam.end_time.isoformat(),
+            'student_count': student_count,
+        })
+    
+    # 获取待批改列表
+    pending_records = StudentExamRecord.objects.filter(
+        exam__created_by=request.user,
+        is_finished=True,
+        score__isnull=True
+    ).select_related('student', 'exam').order_by('submit_time')[:5]
+    
+    pending_exams_data = []
+    for record in pending_records:
+        pending_exams_data.append({
+            'id': record.id,
+            'exam_title': record.exam.title,
+            'student_name': record.student.username,
+        })
+    
+    # 获取学生总数
+    total_students = StudentProfile.objects.count()
+    
+    stats_data = {
+        'total_questions': total_questions,
+        'total_exams': total_exams,
+        'ongoing_exams': ongoing_exams,
+        'pending_grading': pending_grading,
+        'total_students': total_students,
+    }
+    
+    recent_questions_data = []
+    for q in recent_questions:
+        recent_questions_data.append({
+            'id': q.id,
+            'type': q.type,
+            'content': q.content[:50] + '...' if len(q.content) > 50 else q.content,
+        })
+    
     context = {
         'total_questions': total_questions,
         'total_exams': total_exams,
@@ -94,8 +147,21 @@ def dashboard(request):
         'pending_grading': pending_grading,
         'recent_exams': recent_exams,
         'recent_questions': recent_questions,
+        'stats_json': json.dumps(stats_data),
+        'ongoing_exams_json': json.dumps(ongoing_exams_data),
+        'pending_exams_json': json.dumps(pending_exams_data),
+        'recent_questions_json': json.dumps(recent_questions_data),
     }
-
+    
+    use_vue = request.session.get('use_vue', True)
+    vue_param = request.GET.get('vue')
+    if vue_param is not None:
+        use_vue = vue_param.lower() == 'true'
+        request.session['use_vue'] = use_vue
+    
+    if use_vue:
+        return render(request, 'teachers/dashboard_vue.html', context)
+    
     return render(request, 'teachers/dashboard.html', context)
 
 

@@ -1,0 +1,62 @@
+{% extends "students/base_student.html" %}
+
+{% block title %}提交确认{% endblock %}
+
+{% block content %}
+<script id="vue-data" type="application/json">
+{
+    "exam": {{ exam_json|safe }},
+    "record": {{ record_json|safe }}
+}
+</script>
+
+<div id="app">
+{% verbatim %}
+    <div class="card">
+        <div class="card-header bg-warning">
+            <h4 class="mb-0">⚠️ 确认提交</h4>
+        </div>
+        <div class="card-body text-center">
+            <h5>{{ exam.title }}</h5>
+            <p class="mt-4">你确定要提交试卷吗？</p>
+            <p class="text-danger">⚠️ 提交后将无法修改答案！</p>
+
+            <div class="mt-4">
+                <form method="post" style="display: inline;">
+                    {% endverbatim %}
+                    {% csrf_token %}
+                    {% verbatim %}
+                    <button type="submit" class="btn btn-success btn-lg">确认提交</button>
+                </form>
+                <a :href="'/students/exam/' + exam.id + '/take/vue/'" class="btn btn-secondary btn-lg">返回继续答题</a>
+            </div>
+        </div>
+    </div>
+{% endverbatim %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const { createApp, ref } = Vue;
+    
+    createApp({
+        setup() {
+            const exam = ref({});
+            const record = ref({});
+            
+            const dataElement = document.getElementById('vue-data');
+            if (dataElement) {
+                const data = JSON.parse(dataElement.textContent);
+                exam.value = data.exam || {};
+                record.value = data.record || {};
+            }
+            
+            return {
+                exam,
+                record
+            };
+        }
+    }).mount('#app');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,84 @@
+{% extends "students/base_student.html" %}
+
+{% block title %}考试详情{% endblock %}
+
+{% block content %}
+<script id="vue-data" type="application/json">
+{
+    "exam": {{ exam_json|safe }},
+    "question_count": {{ question_count }},
+    "record": {{ record_json|safe }}
+}
+</script>
+
+<div id="app">
+{% verbatim %}
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">📋 考试详情</h4>
+        </div>
+        <div class="card-body">
+            <h3>{{ exam.title }}</h3>
+            <p class="text-muted">{{ exam.description }}</p>
+            <hr>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>开始时间：</strong> {{ formatDateTime(exam.start_time) }}</p>
+                    <p><strong>结束时间：</strong> {{ formatDateTime(exam.end_time) }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>考试时长：</strong> {{ exam.duration }} 分钟</p>
+                    <p><strong>题目数量：</strong> {{ question_count }} 题</p>
+                    <p><strong>总分：</strong> {{ exam.total_score }}</p>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3">
+                ⏰ 请认真阅读考试规则，点击开始考试后计时开始。
+            </div>
+
+            <div class="text-center mt-4">
+                <a :href="'/students/exam/' + exam.id + '/take/vue/'" class="btn btn-success btn-lg">开始考试</a>
+                <a href="/students/dashboard/" class="btn btn-secondary btn-lg ms-2">返回主页</a>
+            </div>
+        </div>
+    </div>
+{% endverbatim %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const { createApp, ref, computed } = Vue;
+    
+    createApp({
+        setup() {
+            const exam = ref({});
+            const questionCount = ref(0);
+            const record = ref({});
+            
+            const dataElement = document.getElementById('vue-data');
+            if (dataElement) {
+                const data = JSON.parse(dataElement.textContent);
+                exam.value = data.exam || {};
+                questionCount.value = data.question_count || 0;
+                record.value = data.record || {};
+            }
+            
+            const formatDateTime = (dateString) => {
+                if (!dateString) return '';
+                const date = new Date(dateString);
+                return date.toLocaleString('zh-CN');
+            };
+            
+            return {
+                exam,
+                question_count: questionCount,
+                record,
+                formatDateTime
+            };
+        }
+    }).mount('#app');
+});
+</script>
+{% endblock %}

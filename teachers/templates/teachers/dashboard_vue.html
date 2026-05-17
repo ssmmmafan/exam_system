@@ -1,0 +1,241 @@
+{% extends "teachers/base_teacher.html" %}
+
+{% block title %}教师主页{% endblock %}
+
+{% block content %}
+<script id="vue-data" type="application/json">
+{
+    "stats": {{ stats_json|safe }},
+    "ongoing_exams": {{ ongoing_exams_json|safe }},
+    "pending_exams": {{ pending_exams_json|safe }},
+    "recent_questions": {{ recent_questions_json|safe }},
+    "username": "{{ request.user.username }}"
+}
+</script>
+
+<div class="container-fluid py-3">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2 class="mb-1">欢迎回来，{{ request.user.username }} 老师</h2>
+            <p class="text-muted mb-0">今天是美好的一天！</p>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-dark text-white d-flex align-items-center">
+                    <i class="bi bi-lightning-fill me-2"></i>
+                    <h5 class="mb-0">快捷操作</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 text-center">
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:create_question' %}" class="btn btn-primary w-100 py-3">
+                                <i class="bi bi-plus-circle fs-4 d-block mb-1"></i>
+                                <small>创建试题</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:question_classification' %}" class="btn btn-outline-success w-100 py-3">
+                                <i class="bi bi-grid fs-4 d-block mb-1"></i>
+                                <small>试题分类</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:create_exam' %}" class="btn btn-outline-info w-100 py-3">
+                                <i class="bi bi-file-plus fs-4 d-block mb-1"></i>
+                                <small>创建试卷</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:random_exam' %}" class="btn btn-outline-warning w-100 py-3">
+                                <i class="bi bi-shuffle fs-4 d-block mb-1"></i>
+                                <small>随机组卷</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:import_questions' %}" class="btn btn-outline-secondary w-100 py-3">
+                                <i class="bi bi-upload fs-4 d-block mb-1"></i>
+                                <small>批量导入</small>
+                            </a>
+                        </div>
+                        <div class="col-6 col-md-4 col-lg-2 mb-2">
+                            <a href="{% url 'teachers:my_students' %}" class="btn btn-outline-danger w-100 py-3">
+                                <i class="bi bi-people fs-4 d-block mb-1"></i>
+                                <small>我的学生</small>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="app">
+{% verbatim %}
+    <div class="container-fluid">
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-lg-3">
+                <a href="/teachers/questions/management/" class="text-decoration-none">
+                    <div class="card stat-card bg-gradient-primary text-white h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-question-circle fs-1 opacity-50"></i>
+                            <h6 class="mt-2 mb-1">我的试题</h6>
+                            <h2 class="mb-0">{{ stats.total_questions }}</h2>
+                            <small>查看详情 →</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-lg-3">
+                <a href="/teachers/exam/management/" class="text-decoration-none">
+                    <div class="card stat-card bg-gradient-success text-white h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-file-text fs-1 opacity-50"></i>
+                            <h6 class="mt-2 mb-1">我的考试</h6>
+                            <h2 class="mb-0">{{ stats.total_exams }}</h2>
+                            <small>查看详情 →</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-lg-3">
+                <a href="/teachers/ongoing/" class="text-decoration-none">
+                    <div class="card stat-card bg-gradient-info text-white h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-play-circle fs-1 opacity-50"></i>
+                            <h6 class="mt-2 mb-1">进行中</h6>
+                            <h2 class="mb-0">{{ stats.ongoing_exams }}</h2>
+                            <small>查看进行中 →</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-6 col-lg-3">
+                <a href="/teachers/pending/" class="text-decoration-none">
+                    <div class="card stat-card bg-gradient-warning text-white h-100">
+                        <div class="card-body text-center">
+                            <i class="bi bi-check2-circle fs-1 opacity-50"></i>
+                            <h6 class="mt-2 mb-1">待批改</h6>
+                            <h2 class="mb-0">{{ stats.pending_grading }}</h2>
+                            <small>批改试卷 →</small>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">📝 进行中的考试</h5>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="ongoing_exams.length === 0" class="empty-state">
+                            <i class="bi bi-calendar-check"></i>
+                            <p>暂无进行中的考试</p>
+                        </div>
+                        <div v-else>
+                            <div v-for="exam in ongoing_exams" :key="exam.id" class="list-group-item hover-shadow">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="font-weight-bold">{{ exam.title }}</h6>
+                                        <p class="text-sm text-muted">
+                                            剩余时间：{{ formatTimeLeft(exam.end_time) }}
+                                        </p>
+                                    </div>
+                                    <div class="text-right">
+                                        <span class="badge bg-warning">{{ exam.student_count }} 人参加</span>
+                                        <a :href="'/teachers/exam/' + exam.id + '/students/'" class="btn btn-primary btn-sm mt-1">查看学生</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">📋 待批改试卷</h5>
+                    </div>
+                    <div class="card-body">
+                        <div v-if="pending_exams.length === 0" class="empty-state">
+                            <i class="bi bi-check-circle"></i>
+                            <p>暂无待批改试卷</p>
+                        </div>
+                        <div v-else>
+                            <div v-for="record in pending_exams" :key="record.id" class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="font-weight-bold">{{ record.exam_title }}</h6>
+                                        <p class="text-sm text-muted">{{ record.student_name }}</p>
+                                    </div>
+                                    <a :href="'/teachers/grade/' + record.id + '/'" class="btn btn-success btn-sm">批改</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endverbatim %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const { createApp, ref } = Vue;
+    
+    createApp({
+        setup() {
+            const stats = ref({});
+            const ongoingExams = ref([]);
+            const pendingExams = ref([]);
+            const recentQuestions = ref([]);
+            const username = ref('');
+            
+            const dataElement = document.getElementById('vue-data');
+            if (dataElement) {
+                const data = JSON.parse(dataElement.textContent);
+                stats.value = data.stats || {};
+                ongoingExams.value = data.ongoing_exams || [];
+                pendingExams.value = data.pending_exams || [];
+                recentQuestions.value = data.recent_questions || [];
+                username.value = data.username || '';
+            }
+            
+            const formatTimeLeft = (endTimeString) => {
+                if (!endTimeString) return '已结束';
+                const endTime = new Date(endTimeString);
+                const now = new Date();
+                const diff = endTime - now;
+                
+                if (diff <= 0) return '已结束';
+                
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                
+                if (hours > 0) {
+                    return `${hours}小时${minutes}分钟`;
+                }
+                return `${minutes}分钟`;
+            };
+            
+            return {
+                stats,
+                ongoing_exams: ongoingExams,
+                pending_exams: pendingExams,
+                recent_questions: recentQuestions,
+                username,
+                formatTimeLeft
+            };
+        }
+    }).mount('#app');
+});
+</script>
+{% endblock %}

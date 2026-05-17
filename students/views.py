@@ -167,6 +167,42 @@ def dashboard(request):
             student_id=f'TEMP{request.user.id}'
         )
     
+    import json
+    
+    profile_data = {
+        'user_username': student_profile.user.username,
+        'student_id': student_profile.student_id,
+        'class_name': student_profile.class_name,
+        'major': student_profile.major,
+    }
+    
+    upcoming_exams_data = []
+    for exam in upcoming_exams:
+        upcoming_exams_data.append({
+            'id': exam.id,
+            'title': exam.title,
+            'start_time': exam.start_time.isoformat(),
+            'end_time': exam.end_time.isoformat(),
+            'duration': exam.duration,
+        })
+    
+    missed_exams_data = []
+    for exam in missed_exams:
+        missed_exams_data.append({
+            'id': exam.id,
+            'title': exam.title,
+            'end_time': exam.end_time.isoformat(),
+        })
+    
+    completed_records_data = []
+    for record in completed_records:
+        completed_records_data.append({
+            'id': record.id,
+            'exam_title': record.exam.title,
+            'submit_time': record.submit_time.isoformat() if record.submit_time else None,
+            'score': record.score,
+        })
+    
     # 准备上下文数据
     context = {
         'upcoming_exams': upcoming_exams,
@@ -174,8 +210,24 @@ def dashboard(request):
         'completed_records': completed_records,
         'profile': student_profile,
         'now': now,
+        'upcoming_exams_json': json.dumps(upcoming_exams_data),
+        'missed_exams_json': json.dumps(missed_exams_data),
+        'completed_records_json': json.dumps(completed_records_data),
+        'profile_json': json.dumps(profile_data),
     }
 
+    # 检查是否使用 Vue 版本（优先从 session 获取，其次从 URL 参数，默认使用 Vue）
+    use_vue = request.session.get('use_vue', True)
+    
+    # 如果 URL 参数明确指定，更新 session
+    vue_param = request.GET.get('vue')
+    if vue_param is not None:
+        use_vue = vue_param.lower() == 'true'
+        request.session['use_vue'] = use_vue
+    
+    if use_vue:
+        return render(request, 'students/dashboard_vue.html', context)
+    
     return render(request, 'students/dashboard.html', context)
 @login_required
 def exam_detail(request, exam_id):
@@ -208,12 +260,41 @@ def exam_detail(request, exam_id):
 
     question_count = exam.exam_questions.count()
 
+    import json
+    
+    exam_json = json.dumps({
+        'id': exam.id,
+        'title': exam.title,
+        'description': exam.description,
+        'start_time': exam.start_time.isoformat(),
+        'end_time': exam.end_time.isoformat(),
+        'duration': exam.duration,
+        'total_score': exam.total_score,
+    })
+    
+    record_json = json.dumps({
+        'id': record.id,
+        'start_time': record.start_time.isoformat() if record.start_time else None,
+    })
+
     context = {
         'exam': exam,
         'record': record,
         'question_count': question_count,
         'now': now,
+        'exam_json': exam_json,
+        'record_json': record_json,
     }
+    
+    use_vue = request.session.get('use_vue', True)
+    vue_param = request.GET.get('vue')
+    if vue_param is not None:
+        use_vue = vue_param.lower() == 'true'
+        request.session['use_vue'] = use_vue
+    
+    if use_vue:
+        return render(request, 'students/exam_detail_vue.html', context)
+    
     return render(request, 'students/exam_detail.html', context)
 
 
@@ -279,6 +360,84 @@ def exam_taking(request, exam_id):
         'time_left': remaining_seconds,
     }
     return render(request, 'students/exam_taking.html', context)
+
+
+@login_required
+def exam_taking_vue(request, exam_id):
+    """考试进行页 - Vue版本"""
+    exam = get_object_or_404(Exam, id=exam_id, is_published=True)
+    record = get_object_or_404(
+        StudentExamRecord,
+        student=request.user,
+        exam=exam,
+        is_finished=False
+    )
+
+    now = timezone.now()
+
+    if now > exam.end_time:
+        messages.error(request, '考试已结束，自动提交')
+        return redirect('students:submit_exam', exam_id=exam.id)
+
+    exam_questions = ExamQuestion.objects.filter(exam=exam).order_by('order')
+
+    if exam.random_questions:
+        import random
+        exam_questions = list(exam_questions)
+        random.shuffle(exam_questions)
+
+    questions_with_content = get_question_with_content(exam_questions, exam.random_options)
+
+    time_delta = exam.end_time - now
+    remaining_seconds = int(time_delta.total_seconds())
+    if remaining_seconds < 0:
+        remaining_seconds = 0
+
+    if request.method == 'POST':
+        answers = record.answers or {}
+        for key, value in request.POST.items():
+            if key.startswith('question_'):
+                q_id = key.replace('question_', '')
+                if q_id in answers:
+                    if isinstance(answers[q_id], list):
+                        answers[q_id].append(value)
+                    else:
+                        answers[q_id] = [answers[q_id], value]
+                else:
+                    answers[q_id] = value
+
+        record.answers = answers
+        record.save()
+
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'status': 'success', 'message': '已保存'})
+
+        messages.success(request, '答案已保存')
+        return redirect('students:exam_taking_vue', exam_id=exam.id)
+
+    import json
+    context = {
+        'exam': exam,
+        'record': record,
+        'questions_with_content': json.dumps([
+            {
+                'eq': {
+                    'id': item['eq'].id,
+                    'question_id': item['eq'].question_id,
+                    'score': item['eq'].score,
+                },
+                'question': {
+                    'id': item['question'].id,
+                    'content': item['question'].content,
+                    'type': item['question'].type,
+                    'shuffled_options': item['question'].shuffled_options,
+                } if item['question'] else None,
+            } for item in questions_with_content
+        ]),
+        'now': now,
+        'time_left': remaining_seconds,
+    }
+    return render(request, 'students/exam_taking_vue.html', context)
 
 
 @login_required
@@ -357,10 +516,33 @@ def submit_exam(request, exam_id):
 
         return redirect('students:exam_result', record_id=record.id)
 
+    import json
+    
+    exam_json = json.dumps({
+        'id': exam.id,
+        'title': exam.title,
+    })
+    
+    record_json = json.dumps({
+        'id': record.id,
+    })
+    
     context = {
         'exam': exam,
         'record': record,
+        'exam_json': exam_json,
+        'record_json': record_json,
     }
+    
+    use_vue = request.session.get('use_vue', True)
+    vue_param = request.GET.get('vue')
+    if vue_param is not None:
+        use_vue = vue_param.lower() == 'true'
+        request.session['use_vue'] = use_vue
+    
+    if use_vue:
+        return render(request, 'students/submit_confirm_vue.html', context)
+    
     return render(request, 'students/submit_confirm.html', context)
 @login_required
 def exam_result(request, record_id):
@@ -497,15 +679,43 @@ def exam_result(request, record_id):
                 'is_scored': False,
                 'type_display': '未知',
             })
+    
+    import json
+    
+    record_json = json.dumps({
+        'id': record.id,
+        'exam_title': record.exam.title,
+        'submit_time': record.submit_time.isoformat() if record.submit_time else None,
+        'score': record.score,
+    })
+    
+    exam_json = json.dumps({
+        'id': record.exam.id,
+        'title': record.exam.title,
+    })
+    
+    result_details_json = json.dumps(result_details)
+    
     total_score_display = record.score if record.score is not None else '待批改'
+    total_possible = sum(eq.score for eq in exam_questions)
+    
     context = {
         'record': record,
         'exam': record.exam,
         'result_details': result_details,
-        'total_possible': sum(eq.score for eq in exam_questions),
+        'total_possible': total_possible,
         'has_essay_unscored': has_essay_unscored,
         'total_score_display': total_score_display,
+        'record_json': record_json,
+        'exam_json': exam_json,
+        'result_details_json': result_details_json,
     }
+    
+    # 默认使用 Vue 版本，可以通过 ?django=true 切换到 Django 版本
+    use_vue = request.GET.get('django', 'false').lower() != 'true'
+    if use_vue:
+        return render(request, 'students/exam_result_vue.html', context)
+    
     return render(request, 'students/exam_result.html', context)
 
 

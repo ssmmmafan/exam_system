@@ -1,0 +1,533 @@
+{% extends "students/base_student.html" %}
+
+{% block title %}考试中 - {{ exam.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timer {
+        font-size: 28px;
+        font-weight: bold;
+        color: #dc3545;
+        background: white;
+        padding: 10px 25px;
+        border-radius: 50px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        display: inline-block;
+    }
+    .timer.warning {
+        color: #ffc107;
+        animation: pulse 1s infinite;
+    }
+    .timer.danger {
+        color: #dc3545;
+        animation: pulse 0.5s infinite;
+    }
+    @keyframes pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.7; }
+        100% { opacity: 1; }
+    }
+    .question-card {
+        margin-bottom: 20px;
+        border-left: 4px solid #667eea;
+        transition: all 0.3s ease;
+    }
+    .question-card:hover {
+        transform: translateX(5px);
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    .question-card.current {
+        border-left-color: #28a745;
+        background-color: rgba(40, 167, 69, 0.05);
+    }
+    .question-content {
+        font-size: 16px;
+        line-height: 1.6;
+    }
+    .options-group {
+        margin-top: 15px;
+        margin-left: 20px;
+    }
+    .form-check {
+        margin-bottom: 10px;
+    }
+    .nav-tabs .nav-link {
+        border-radius: 8px 8px 0 0;
+    }
+    .nav-tabs .nav-link.active {
+        background-color: #667eea;
+        color: white;
+        border-color: #667eea;
+    }
+    .progress-bar {
+        transition: width 0.5s ease;
+    }
+    .save-indicator {
+        transition: all 0.3s ease;
+    }
+    .save-indicator.saving {
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    .filter-btn {
+        transition: all 0.2s;
+    }
+    .filter-btn.active {
+        background-color: #667eea;
+        color: white;
+    }
+    .question-type-badge {
+        font-size: 11px;
+        padding: 2px 8px;
+        border-radius: 10px;
+    }
+    .type-single { background-color: #e7f3ff; color: #0c63e4; }
+    .type-multiple { background-color: #f0fff4; color: #0f5132; }
+    .type-judge { background-color: #fff3e0; color: #b45309; }
+    .type-fill { background-color: #fef3c7; color: #92400e; }
+    .type-essay { background-color: #fce7f3; color: #9d174d; }
+    }
+    .answer-status {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        margin-right: 4px;
+    }
+    .answer-status.unanswered {
+        background-color: #e9ecef;
+        color: #6c757d;
+    }
+    .answer-status.answered {
+        background-color: #28a745;
+        color: white;
+    }
+    .answer-status.current {
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.5);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="app">
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4>{{ exam.title }}</h4>
+                <div class="text-center">
+                    <div :class="['timer', timerClass]" id="timer">{{ formattedTime }}</div>
+                    <small class="text-muted mt-1 d-block">剩余时间</small>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">答题进度</span>
+                    <span class="font-weight-bold">{{ answeredCount }} / {{ questions.length }}</span>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-success" 
+                         :style="{ width: progressPercent + '%' }"></div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-between flex-wrap gap-2">
+                <div class="d-flex gap-2">
+                    <span class="badge bg-success">{{ answeredCount }} 已答</span>
+                    <span class="badge bg-secondary">{{ questions.length - answeredCount }} 未答</span>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="text-muted">自动保存：</span>
+                    <span v-if="saveStatus === 'saved'" class="text-success">✓ 已保存</span>
+                    <span v-else-if="saveStatus === 'saving'" class="text-warning">
+                        <i class="bi bi-spinner save-indicator saving"></i> 保存中...
+                    </span>
+                    <span v-else class="text-muted">未保存</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-9">
+            <form method="post" id="examForm">
+                {% csrf_token %}
+                
+                <div v-for="(item, index) in questions" :key="item.eq.id" 
+                     :class="['card question-card', { 'current': currentIndex === index }]">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex gap-2">
+                                <h6 class="card-title text-primary">第 {{ index + 1 }} 题</h6>
+                                <span :class="['question-type-badge', 'type-' + item.question.type]">
+                                    {{ getTypeName(item.question.type) }}
+                                </span>
+                            </div>
+                            <span class="badge bg-info">{{ item.eq.score }} 分</span>
+                        </div>
+
+                        <template v-if="item.question">
+                            <p class="card-text question-content mt-2">{{ item.question.content }}</p>
+
+                            <template v-if="item.question.type === 'single'">
+                                <div class="options-group">
+                                    <div v-for="(value, key) in item.question.shuffled_options" :key="key" class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               :name="'question_' + item.eq.question_id"
+                                               :id="'q' + item.eq.question_id + '_' + key"
+                                               :value="key"
+                                               v-model="answers['question_' + item.eq.question_id]">
+                                        <label class="form-check-label" :for="'q' + item.eq.question_id + '_' + key">
+                                            {{ key }}. {{ value }}
+                                        </label>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template v-else-if="item.question.type === 'multiple'">
+                                <div class="options-group">
+                                    <div v-for="(value, key) in item.question.shuffled_options" :key="key" class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               :name="'question_' + item.eq.question_id"
+                                               :id="'q' + item.eq.question_id + '_' + key"
+                                               :value="key"
+                                               :checked="isMultipleSelected(item.eq.question_id, key)"
+                                               @change="toggleMultipleAnswer(item.eq.question_id, key)">
+                                        <label class="form-check-label" :for="'q' + item.eq.question_id + '_' + key">
+                                            {{ key }}. {{ value }}
+                                        </label>
+                                    </div>
+                                    <small class="text-muted">提示：多选题可选择多个答案</small>
+                                </div>
+                            </template>
+
+                            <template v-else-if="item.question.type === 'judge'">
+                                <div class="options-group">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               :name="'question_' + item.eq.question_id"
+                                               :id="'q' + item.eq.question_id + '_true'"
+                                               value="对"
+                                               v-model="answers['question_' + item.eq.question_id]">
+                                        <label class="form-check-label" :for="'q' + item.eq.question_id + '_true'">
+                                            ✓ 正确
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio"
+                                               :name="'question_' + item.eq.question_id"
+                                               :id="'q' + item.eq.question_id + '_false'"
+                                               value="错"
+                                               v-model="answers['question_' + item.eq.question_id]">
+                                        <label class="form-check-label" :for="'q' + item.eq.question_id + '_false'">
+                                            ✗ 错误
+                                        </label>
+                                    </div>
+                                </div>
+                            </template>
+
+                            <template v-else-if="item.question.type === 'essay' || item.question.type === 'discussion'">
+                                <div class="mt-3">
+                                    <textarea class="form-control"
+                                              :name="'question_' + item.eq.question_id"
+                                              :rows="item.question.type === 'discussion' ? 6 : 4"
+                                              placeholder="请输入你的答案..."
+                                              v-model="answers['question_' + item.eq.question_id]"></textarea>
+                                    <small class="text-muted">提示：{{ item.question.type === 'discussion' ? '论述题' : '简答题' }}将由教师批改</small>
+                                </div>
+                            </template>
+
+                            <template v-else-if="item.question.type === 'fill'">
+                                <div class="mt-3">
+                                    <input type="text" class="form-control"
+                                           :name="'question_' + item.eq.question_id"
+                                           placeholder="请输入答案..."
+                                           v-model="answers['question_' + item.eq.question_id]">
+                                    <small class="text-muted">提示：请直接输入答案，不要加多余的标点符号</small>
+                                </div>
+                            </template>
+
+                            <template v-else>
+                                <div class="alert alert-warning">未知题型</div>
+                            </template>
+                        </template>
+
+                        <template v-else>
+                            <div class="alert alert-danger">
+                                题目不存在（ID: {{ item.eq.question_id }}），请联系教师
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mb-4 mt-4">
+                    <button type="button" class="btn btn-primary px-4" @click="saveAnswers">
+                        💾 保存答案
+                    </button>
+                    <button type="button" class="btn btn-success px-4" @click="submitExam">
+                        📤 提交试卷
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0">📋 答题卡</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <button v-for="(item, index) in questions" :key="item.eq.id"
+                                :class="['btn btn-sm rounded-circle', getAnswerButtonClass(index)]"
+                                @click="goToQuestion(index)">
+                            {{ index + 1 }}
+                        </button>
+                    </div>
+                    <div class="mt-3 pt-3 border-top">
+                        <div class="d-flex justify-content-between text-sm">
+                            <span><span class="answer-status answered"></span> 已答</span>
+                            <span><span class="answer-status unanswered"></span> 未答</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">⏱️ 答题进度</h6>
+                </div>
+                <div class="card-body">
+                    <div class="progress">
+                        <div class="progress-bar bg-success" :style="{ width: progressPercent + '%' }"></div>
+                    </div>
+                    <p class="text-center mt-2 text-sm">{{ answeredCount }} / {{ questions.length }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div v-if="showToast" class="alert alert-success position-fixed top-0 end-0 m-3" style="z-index: 9999;">
+        {{ toastMessage }}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const { createApp, ref, computed, onMounted, onUnmounted, watch } = Vue;
+
+createApp({
+    setup() {
+        const timeLeft = ref({{ time_left|default:0 }});
+        const currentIndex = ref(0);
+        const showToast = ref(false);
+        const toastMessage = ref('');
+        const saveStatus = ref('saved');
+        
+        const questions = ref({{ questions_with_content|safe }});
+        
+        const answers = ref({});
+        const multipleAnswers = ref({});
+        
+        questions.value.forEach(item => {
+            const key = 'question_' + item.eq.question_id;
+            answers.value[key] = '';
+            multipleAnswers.value[key] = [];
+        });
+
+        const formattedTime = computed(() => {
+            if (timeLeft.value <= 0) return '00:00';
+            
+            const hours = Math.floor(timeLeft.value / 3600);
+            const minutes = Math.floor((timeLeft.value % 3600) / 60);
+            const secs = timeLeft.value % 60;
+
+            if (hours > 0) {
+                return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }
+        });
+
+        const timerClass = computed(() => {
+            if (timeLeft.value < 300) return 'danger';
+            if (timeLeft.value < 600) return 'warning';
+            return '';
+        });
+
+        const answeredCount = computed(() => {
+            return questions.value.filter((item, index) => {
+                const key = 'question_' + item.eq.question_id;
+                const answer = answers.value[key];
+                const multi = multipleAnswers.value[key];
+                return answer || (multi && multi.length > 0);
+            }).length;
+        });
+
+        const progressPercent = computed(() => {
+            if (questions.value.length === 0) return 0;
+            return Math.round((answeredCount.value / questions.value.length) * 100);
+        });
+
+        const getTypeName = (type) => {
+            const types = {
+                'single': '单选',
+                'multiple': '多选',
+                'judge': '判断',
+                'fill': '填空',
+                'essay': '简答',
+                'discussion': '论述'
+            };
+            return types[type] || type;
+        };
+
+        let timerInterval = null;
+        let autoSaveTimer = null;
+
+        onMounted(() => {
+            timeLeft.value = parseInt(timeLeft.value);
+            
+            timerInterval = setInterval(() => {
+                if (timeLeft.value > 0) {
+                    timeLeft.value--;
+                } else {
+                    clearInterval(timerInterval);
+                    document.getElementById('examForm').submit();
+                }
+            }, 1000);
+        });
+
+        onUnmounted(() => {
+            if (timerInterval) clearInterval(timerInterval);
+            if (autoSaveTimer) clearTimeout(autoSaveTimer);
+        });
+
+        const isMultipleSelected = (questionId, key) => {
+            const answerKey = 'question_' + questionId;
+            return multipleAnswers.value[answerKey]?.includes(key) || false;
+        };
+
+        const toggleMultipleAnswer = (questionId, key) => {
+            const answerKey = 'question_' + questionId;
+            if (!multipleAnswers.value[answerKey]) {
+                multipleAnswers.value[answerKey] = [];
+            }
+            const index = multipleAnswers.value[answerKey].indexOf(key);
+            if (index === -1) {
+                multipleAnswers.value[answerKey].push(key);
+            } else {
+                multipleAnswers.value[answerKey].splice(index, 1);
+            }
+            triggerAutoSave();
+        };
+
+        const goToQuestion = (index) => {
+            currentIndex.value = index;
+            const element = document.querySelector(`.question-card:nth-child(${index + 1})`);
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        };
+
+        const getAnswerButtonClass = (index) => {
+            const item = questions.value[index];
+            const key = 'question_' + item.eq.question_id;
+            const answer = answers.value[key];
+            const multi = multipleAnswers.value[key];
+            const isAnswered = answer || (multi && multi.length > 0);
+            
+            if (currentIndex.value === index) {
+                return isAnswered ? 'btn-success' : 'btn-primary';
+            }
+            return isAnswered ? 'btn-outline-success' : 'btn-outline-secondary';
+        };
+
+        const showToastMessage = (message) => {
+            toastMessage.value = message;
+            showToast.value = true;
+            setTimeout(() => {
+                showToast.value = false;
+            }, 2000);
+        };
+
+        const triggerAutoSave = () => {
+            clearTimeout(autoSaveTimer);
+            autoSaveTimer = setTimeout(() => {
+                saveAnswers();
+            }, 3000);
+        };
+
+        watch(answers, () => {
+            triggerAutoSave();
+        }, { deep: true });
+
+        const saveAnswers = () => {
+            saveStatus.value = 'saving';
+            
+            const formData = new FormData(document.getElementById('examForm'));
+            
+            Object.keys(multipleAnswers.value).forEach(key => {
+                if (multipleAnswers.value[key].length > 0) {
+                    formData.delete(key);
+                    multipleAnswers.value[key].forEach(val => {
+                        formData.append(key, val);
+                    });
+                }
+            });
+
+            fetch(window.location.href, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            }).then(response => {
+                saveStatus.value = 'saved';
+                if (response.ok) {
+                    showToastMessage('✅ 答案已自动保存');
+                }
+            }).catch(() => {
+                saveStatus.value = 'saved';
+            });
+        };
+
+        const submitExam = () => {
+            if (!confirm('确定要提交试卷吗？提交后无法修改。')) return;
+            saveAnswers();
+            setTimeout(() => {
+                window.location.href = "{% url 'students:submit_exam' exam.id %}";
+            }, 500);
+        };
+
+        return {
+            timeLeft,
+            currentIndex,
+            showToast,
+            toastMessage,
+            saveStatus,
+            questions,
+            answers,
+            multipleAnswers,
+            formattedTime,
+            timerClass,
+            answeredCount,
+            progressPercent,
+            getTypeName,
+            isMultipleSelected,
+            toggleMultipleAnswer,
+            goToQuestion,
+            getAnswerButtonClass,
+            saveAnswers,
+            submitExam
+        };
+    }
+}).mount('#app');
+</script>
+{% endblock %}

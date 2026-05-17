@@ -56,7 +56,7 @@
                             {% elif now > exam.end_time %}
                                 <span class="badge bg-danger">考试已结束</span>
                             {% else %}
-                                <a href="{% url 'students:exam_detail' exam.id %}" class="btn btn-sm btn-primary">进入考试</a>
+                                <a href="{% url 'students:exam_detail' exam.id %}" class="btn btn-sm btn-primary">查看详情</a>
                             {% endif %}
                             <p class="text-muted small">当前时间：{{ now|date:'Y-m-d H:i:s' }}</p>
                         </div>

@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -194,6 +195,20 @@
         a.text-decoration-none {
             display: block;
         }
+        
+        /* 优化14：渐变背景样式 */
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #0d6efd 0%, #0a4ed8 100%);
+        }
+        .bg-gradient-success {
+            background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+        }
+        .bg-gradient-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #117a8b 100%);
+        }
+        .bg-gradient-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%);
+        }
     </style>
 </head>
 <body>
@@ -256,6 +271,8 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue@3.4.21/dist/vue.global.min.js"></script>
+    <script src="{% static 'js/vue-utils.js' %}"></script>
     <script>
         function toggleSidebar() {
             const sidebar = document.getElementById('sidebar');
