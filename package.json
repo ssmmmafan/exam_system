@@ -1,0 +1,21 @@
+{
+  "name": "exam_system",
+  "version": "1.0.0",
+  "description": "这是一个基于Django开发的在线考试系统，用于软件工程课程大作业。系统支持教师创建考试、管理题库，学生参加考试、查看成绩等功能。",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://ssmmmafan@github.com/ssmmmafan/exam_system.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ssmmmafan/exam_system/issues"
+  },
+  "homepage": "https://github.com/ssmmmafan/exam_system#readme"
+}
