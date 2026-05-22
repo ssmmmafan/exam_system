@@ -1,217 +1,406 @@
 # 在线考试系统
 
-## 项目简介
+基于 **Django 6.0 + Vue 3 + MySQL** 开发的在线考试系统，支持教师创建考试、管理题库，学生参加考试、查看成绩。
 
-这是一个基于Django开发的在线考试系统，用于软件工程课程大作业。系统支持教师创建考试、管理题库，学生参加考试、查看成绩等功能。
+---
 
 ## 功能特点
 
 ### 教师功能
-
-- 题库管理：创建、编辑、批量导入题目
-- 考试管理：全新的考试管理功能，整合进行中考试、待批改试卷、我的考试等
-- 智能组卷：手动创建考试、随机组卷，系统自动计算总分
-- 防作弊措施：随机题目顺序、随机选项顺序
-- 试卷批改：自动批改客观题，手动批改主观题
-- 学生管理：查看学生考试状态，包括未参加、进行中、待批改、已批改
-- 成绩统计：查看考试统计信息和学生成绩
+- **题库管理**：创建、编辑、批量导入题目（支持 Excel/CSV）
+- **考试管理**：创建考试、随机组卷、自定义分数设置
+- **防作弊**：随机题目顺序、随机选项顺序
+- **试卷批改**：自动批改客观题（单选/多选/判断/填空），手动批改主观题（简答/论述）
+- **学生管理**：查看考试状态、成绩统计、试卷详情
 
 ### 学生功能
-
-- 用户注册和登录
-- 参加考试：支持多种题型
-- 查看成绩：查看历史考试成绩和详细答题情况
-- 考试监控：实时倒计时和自动保存答案
+- **注册登录**：学生注册并关联教师
+- **参加考试**：支持多种题型，实时倒计时，题目导航
+- **成绩查看**：历史考试成绩和详细答题情况、错题本
 
 ### 系统特点
+- **支持题型**：单选题、多选题、判断题、填空题、简答题、论述题
+- **批量导入**：支持 Excel/CSV 文件导入题目
+- **随机组卷**：按题型和数量自动生成试卷
+- **个人中心**：支持修改资料、更换头像
 
-- 支持多种题型：单选题、多选题、判断题、简答题、填空题、论述题
-- 批量导入题目：支持从Excel/CSV文件导入题目
-- 随机组卷：根据题型和数量自动生成试卷
-- 性能优化：使用缓存和批量查询提高系统响应速度
-- 安全可靠：权限控制和数据验证
+---
 
 ## 技术栈
 
-- **后端**：Python 3.13 + Django 6.0.3
-- **数据库**：MySQL
-- **前端**：HTML + CSS + JavaScript + Bootstrap 5
-- **其他**：pandas（用于批量导入）
+| 层面 | 技术 |
+|------|------|
+| 后端框架 | Django 6.0.3 + Python 3.12 |
+| 数据库 | MySQL 8.0 |
+| 前端框架 | Vue 3.4.21 + TypeScript 6.0 |
+| 构建工具 | Vite 5.x |
+| 路由 | Vue Router 5.x |
+| HTTP 请求 | Axios 1.6.x |
+| 容器化 | Docker + Docker Compose |
+| WSGI 服务器 | Gunicorn 21.x |
+| 数据处理 | Pandas + OpenPyXL |
 
-## 安装部署
+---
 
-### 方法一：传统部署
+## 前置要求
 
-#### 1. 环境准备
+### 本地开发
+- Python 3.12+
+- Node.js 18+
+- MySQL 8.0+
+- npm 或 yarn
 
-1. 安装Python 3.13或更高版本
-2. 安装MySQL数据库
-3. 安装依赖包
+### Docker 部署
+- Docker 24+
+- Docker Compose 2.20+
 
-#### 2. 安装步骤
+---
 
-1. 克隆项目到本地
-   ```bash
-   git clone <项目地址>
-   cd exam_system
-   ```
-2. 安装依赖
-   ```bash
-   pip install -r requirements.txt
-   ```
-3. 配置数据库
-   - 修改 `exam_system/settings.py` 中的数据库配置
-   - 创建数据库 `exam_system_db`
-4. 运行数据库迁移
-   ```bash
-   python manage.py makemigrations
-   python manage.py migrate
-   ```
-5. 创建超级用户
-   ```bash
-   python manage.py createsuperuser
-   ```
-6. 启动开发服务器
-   ```bash
-   python manage.py runserver
-   ```
-7. 访问系统
-   - 管理后台：<http://127.0.0.1:8000/admin/>
-   - 系统首页：<http://127.0.0.1:8000/>
+## 快速启动
 
-### 方法二：Docker部署
+### 方式一：开发模式（前后端分离，推荐）
 
-#### 1. 环境准备
+#### 1. 配置数据库
 
-1. 安装Docker
-2. 安装Docker Compose
+确保 MySQL 服务已启动，创建数据库：
 
-#### 2. 部署步骤
+```sql
+CREATE DATABASE exam_system_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
-1. 克隆项目到本地
-   ```bash
-   git clone <项目地址>
-   cd exam_system
-   ```
-2. 修改配置
-   - 编辑 `docker-compose.yml` 文件，设置合适的 `SECRET_KEY`
-3. 启动服务
-   ```bash
-   docker-compose up -d
-   ```
-4. 运行数据库迁移
-   ```bash
-   docker-compose exec web python manage.py makemigrations
-   docker-compose exec web python manage.py migrate
-   ```
-5. 创建超级用户
-   ```bash
-   docker-compose exec web python manage.py createsuperuser
-   ```
-6. 访问系统
-   - 管理后台：<http://localhost:8000/admin/>
-   - 系统首页：<http://localhost:8000/>
+#### 2. 配置后端
 
-#### 3. Docker部署优势
+```bash
+# 进入项目目录
+cd exam_system
 
-- 环境隔离：避免依赖冲突
-- 一键部署：简化部署流程
-- 可移植性：在任何支持Docker的环境中运行
-- 易于扩展：方便添加其他服务
+# 安装 Python 依赖
+pip install -r requirements.txt
 
-#### 4. 常用Docker命令（都需要在文件目录下cmd执行）
+# 修改数据库配置（如果需要）
+# 编辑 exam_system/settings.py 中的 DATABASES 配置
 
-- 查看容器状态：`docker-compose ps`
-- 查看日志：`docker-compose logs web`
-- 停止服务：`docker-compose down`
-- 重启服务：`docker-compose restart`
+# 执行数据库迁移
+python manage.py makemigrations
+python manage.py migrate
 
-## 使用指南
+# 创建超级管理员
+python manage.py createsuperuser
 
-### 教师操作
+# 启动后端服务（端口 8000）
+python manage.py runserver 0.0.0.0:8000
+```
 
-1. 登录系统后进入教师后台
-2. 点击"题库管理"创建或导入题目
-3. 点击"考试管理"创建考试或使用"随机组卷"生成试卷
-4. 点击"待批改试卷"批改学生提交的试卷
-5. 点击"进行中考试"查看考试状态和学生成绩
+#### 3. 配置前端（新终端）
 
-### 学生操作
+```bash
+# 进入项目目录
+cd exam_system
 
-1. 注册账号并登录系统
-2. 在学生后台查看待参加的考试
-3. 点击"进入考试"开始考试
-4. 完成考试后提交试卷
-5. 在"已完成的考试"中查看成绩
+# 安装 Node.js 依赖
+npm install
 
-## 批量导入题目
+# 启动前端开发服务器（端口 5173）
+npm run dev
+```
 
-1. 准备Excel或CSV文件，包含以下列：
-   - type：题型（single/multiple/judge/essay/fill/discussion）
-   - content：题目内容
-   - options：选项（JSON格式，仅单选题和多选题）
-   - answer：正确答案
-   - score：分值
-   - tags：标签（可选，多个标签用逗号分隔）
-2. 点击侧边栏的"批量导入题目"
-3. 上传文件并导入
+#### 4. 访问系统
 
-## 系统结构
+| 服务 | 地址 |
+|------|------|
+| 前端页面 | http://localhost:5173 |
+| Django API | http://localhost:8000 |
+| Django Admin | http://localhost:8000/admin/ |
+
+---
+
+### 方式二：Docker Compose 部署（一键启动）
+
+```bash
+# 1. 进入项目目录
+cd exam_system
+
+# 2. 启动所有服务
+docker-compose up -d
+
+# 3. 查看运行状态
+docker-compose ps
+
+# 4. 初始化数据库（首次运行）
+docker-compose exec web python manage.py migrate
+
+# 5. 创建超级管理员
+docker-compose exec web python manage.py createsuperuser
+
+# 6. 收集静态文件
+docker-compose exec web python manage.py collectstatic --noinput
+```
+
+访问地址：
+- 前端页面：http://localhost:5173
+- Django Admin：http://localhost （通过 Nginx 反向代理）
+- API 接口：http://localhost/api/
+
+Docker 常用命令：
+```bash
+# 停止服务
+docker-compose down
+
+# 停止并删除数据卷（清空数据库）
+docker-compose down -v
+
+# 查看日志
+docker-compose logs -f web
+docker-compose logs -f frontend
+
+# 重启某个服务
+docker-compose restart web
+
+# 重新构建
+docker-compose build --no-cache web
+```
+
+---
+
+### 方式三：生产模式构建
+
+```bash
+# 1. 构建前端
+npm run build
+# 产物输出到 dist/ 目录
+
+# 2. 配置 Django settings.py
+# DEBUG = False
+# SECRET_KEY = 'your-secret-key'
+
+# 3. 收集静态文件
+python manage.py collectstatic --noinput
+
+# 4. 使用 Gunicorn 启动
+gunicorn exam_system.wsgi:application --bind 0.0.0.0:8000 --workers 4
+```
+
+---
+
+## 项目结构
 
 ```
 exam_system/
-├── exam_system/          # 项目配置
-├── exams/               # 考试应用
-├── questions/           # 题目应用
-├── students/            # 学生应用
-├── teachers/            # 教师应用
-├── users/               # 用户应用
-├── manage.py            # 管理脚本
-├── README.md            # 项目说明
-├── requirements.txt     # 依赖包配置
-├── Dockerfile           # Docker构建文件
-└── docker-compose.yml   # Docker Compose配置
+├── exam_system/              # Django 项目配置
+│   ├── settings.py           # 配置文件（数据库、静态文件等）
+│   ├── urls.py               # 根路由
+│   ├── wsgi.py               # WSGI 入口
+│   └── __init__.py
+├── exams/                    # 考试应用（模型：考试、题目）
+│   ├── models.py             # Exam, ExamQuestion
+│   └── ...
+├── students/                 # 学生应用（模型：学生、答题记录）
+│   ├── models.py             # StudentProfile, StudentExamRecord
+│   ├── api_views.py          # 学生端 API
+│   └── api_urls.py           # 学生端路由
+├── teachers/                 # 教师应用
+│   ├── api_views.py          # 教师端 API
+│   └── api_urls.py           # 教师端路由
+├── users/                    # 用户认证应用
+│   └── ...
+├── api/                      # API 路由聚合
+│   └── urls.py
+├── docker/                   # Docker 配置
+│   ├── Dockerfile.backend
+│   ├── Dockerfile.frontend
+│   └── nginx.conf
+├── src/                      # Vue 3 前端源码
+│   ├── main.ts               # 入口文件
+│   ├── App.vue               # 根组件
+│   ├── router/
+│   │   └── index.ts          # 路由配置
+│   ├── utils/
+│   │   └── api.ts            # Axios 封装
+│   ├── components/           # 公共组件
+│   │   ├── StudentSidebar.vue
+│   │   └── TeacherSidebar.vue
+│   └── views/
+│       ├── student/          # 学生页面
+│       │   ├── Dashboard.vue
+│       │   ├── Exams.vue
+│       │   ├── ExamTaking.vue
+│       │   ├── ExamDetail.vue
+│       │   ├── ResultDetail.vue
+│       │   ├── WrongQuestions.vue
+│       │   └── Profile.vue
+│       └── teacher/          # 教师页面
+│           ├── Dashboard.vue
+│           ├── QuestionBank.vue
+│           ├── ExamManagement.vue
+│           ├── ExamDetail.vue
+│           ├── CreateExam.vue
+│           ├── GradeExam.vue
+│           ├── TeacherExamResult.vue
+│           └── StudentManagement.vue
+├── manage.py                 # Django 管理脚本
+├── requirements.txt          # Python 依赖
+├── package.json              # Node.js 依赖
+├── vite.config.ts            # Vite 配置
+├── tsconfig.json             # TypeScript 配置
+├── docker-compose.yml        # Docker Compose 配置
+└── README.md
 ```
 
-## 测试
+---
 
-运行测试确保系统功能正常：
+## 配置说明
+
+### 数据库配置
+
+默认使用 MySQL，配置位于 `exam_system/settings.py`：
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'exam_system_db',
+        'USER': 'root',
+        'PASSWORD': 'zxcvbnm134',
+        'HOST': 'localhost',
+        'PORT': 3306,
+        'OPTIONS': {
+            'charset': 'utf8mb4',
+        },
+    }
+}
+```
+
+### 前端代理配置
+
+开发模式下，Vite 自动将 `/api` 请求代理到 `http://localhost:8000`，配置在 `vite.config.ts` 中。
+
+生产模式下，需通过 Nginx 或其他方式将 API 请求转发到 Django 后端。
+
+### 媒体文件
+
+头像等用户上传文件存储在 `media/` 目录下，Django 开发环境自动提供媒体文件路由：
+
+```
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
+```
+
+---
+
+## 用户指南
+
+### 教师操作流程
+
+1. **登录**：使用管理员或教师账号登录系统
+2. **题库管理**：创建题目（单选、多选、判断、填空、简答、论述），或通过 Excel 批量导入
+3. **创建考试**：选择题目、设置分数、配置随机策略
+4. **发布考试**：考试对学生可见
+5. **批改试卷**：客观题自动批改，主观题手动评分
+6. **查看成绩**：统计学生考试成绩
+
+### 学生操作流程
+
+1. **注册登录**：注册账号并关联教师
+2. **参加考试**：在"我的考试"中选择待参加的考试
+3. **答题**：按顺序作答，可标记题目，倒计时结束时自动提交
+4. **查看成绩**：在"考试成绩"中查看已批改的试卷详情
+5. **错题本**：复习做错的题目
+
+### 账户类型
+
+| 类型 | 创建方式 | 权限 |
+|------|----------|------|
+| 超级管理员 | `python manage.py createsuperuser` | 全部权限 |
+| 教师用户 | 在 Django Admin 中创建 | 教师端功能 |
+| 学生用户 | 前端注册页面 | 学生端功能 |
+
+---
+
+## API 接口
+
+### 教师端
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/teacher/questions/` | GET | 获取题目列表 |
+| `/api/teacher/questions/` | POST | 创建题目 |
+| `/api/teacher/questions/import/` | POST | 批量导入题目 |
+| `/api/teacher/questions/<id>/` | PUT/DELETE | 编辑/删除题目 |
+| `/api/teacher/exams/` | GET | 获取考试列表 |
+| `/api/teacher/exams/` | POST | 创建考试 |
+| `/api/teacher/exam/<id>/` | GET/PUT/DELETE | 考试详情/编辑/删除 |
+| `/api/teacher/exam/<id>/publish/` | POST | 发布考试 |
+| `/api/teacher/exam/<id>/unpublish/` | POST | 取消发布 |
+| `/api/teacher/grade/<record_id>/` | GET | 获取批改详情 |
+| `/api/teacher/grade/<record_id>/submit/` | POST | 提交批改 |
+| `/api/teacher/result/<record_id>/` | GET | 查看成绩详情 |
+| `/api/teacher/students/` | GET | 学生列表 |
+
+### 学生端
+
+| 接口 | 方法 | 说明 |
+|------|------|------|
+| `/api/student/register/` | POST | 学生注册 |
+| `/api/student/login/` | POST | 学生登录 |
+| `/api/student/profile/` | GET/PUT | 获取/更新个人资料 |
+| `/api/student/profile/avatar/` | POST | 上传头像 |
+| `/api/student/exams/` | GET | 获取考试列表 |
+| `/api/student/exam/<id>/` | GET | 考试详情 |
+| `/api/student/exam/<id>/take/` | GET | 获取考试题目 |
+| `/api/student/exam/<id>/submit/` | POST | 提交答卷 |
+| `/api/student/results/` | GET | 考试成绩列表 |
+| `/api/student/result/<record_id>/` | GET | 成绩详情 |
+| `/api/student/wrong-questions/` | GET | 错题本 |
+
+---
+
+## 常见问题
+
+### 1. MySQL 连接失败
+
+```
+错误: django.db.utils.OperationalError: (2003, "Can't connect to MySQL server")
+```
+
+**解决**：
+- 确认 MySQL 服务已启动
+- 检查 `settings.py` 中的数据库配置
+- Docker 部署时需检查 `docker-compose.yml` 中的数据库配置
+
+### 2. 前端代理不生效
+
+前端页面无法调用 API 时：
+- 确认 Django 后端已启动（`http://localhost:8000`）
+- 检查 `vite.config.ts` 中的 proxy 配置
+- 重启 Vite 开发服务器
+
+### 3. 头像上传失败
+
+- 确认 `media/` 目录存在且可写
+- 检查 Django 是否配置了 `MEDIA_URL` 和 `MEDIA_ROOT`
+- 重启 Django 服务器
+
+### 4. 批量导入题目失败
+
+- 确认 Excel 文件格式正确
+- 检查表头是否匹配系统要求的格式
+- 确认无重复的题目编号
+
+### 5. Docker 部署问题
 
 ```bash
-python manage.py test
+# 查看详细日志
+docker-compose logs -f
+
+# 进入容器调试
+docker-compose exec web bash
+
+# 检查数据库连接
+docker-compose exec db mysql -uroot -pzxcvbnm134 exam_system_db
 ```
 
-## 注意事项
-
-1. 批量导入功能需要安装pandas和openpyxl库
-2. 系统默认使用MySQL数据库，需要确保数据库服务正常运行
-3. 生产环境部署时需要配置DEBUG=False和设置SECRET_KEY
-4. 建议使用Nginx和Gunicorn进行生产环境部署
-5. Docker部署时需要确保Docker服务正常运行
-6. 系统已配置中国时区（Asia/Shanghai）和中文界面
-7. 学生需要关联教师才能看到考试，教师可以管理所有学生的考试状态
-8. 系统会自动计算考试总分，无需手动输入
-9. 已结束但未参加的考试会自动移到历史考试中
+---
 
 ## 许可证
 
 本项目仅供学习和教学使用。
-
-## 联系方式
-
-如有问题，请联系：
-
-- 邮箱：<admin@example.com>
-- 电话：1234567890
-- <br />
-
-```
-ssh -R myexam:80:localhost:8000 serveo.net
-```
-
-上面的命令可以让别人访问网站。可以注册获得稳定域名
-
-```
- https://myexam.serveousercontent.com
-```
-

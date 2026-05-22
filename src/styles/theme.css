@@ -1,0 +1,430 @@
+/* 全局主题变量 */
+:root {
+  /* 主色调 - 低饱和雾霾蓝 */
+  --primary-color: #4A7BC4;
+  --primary-light: #E8F0F8;
+  --primary-hover: #3A6BB4;
+  --primary-dark: #2D5A9A;
+  
+  /* 辅助色 */
+  --success-color: #52C41A;
+  --success-light: #E6F7E6;
+  --warning-color: #FA8C16;
+  --warning-light: #FFF7E6;
+  --info-color: #13C2C2;
+  --info-light: #E6FFFB;
+  --danger-color: #F56565;
+  --danger-light: #FED7D7;
+  
+  /* 文字颜色 */
+  --text-primary: #1F2937;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --text-white: #FFFFFF;
+  
+  /* 背景色 */
+  --bg-page: #F5F7FA;
+  --bg-card: #FFFFFF;
+  --bg-sidebar: #1E3A5F;
+  --bg-sidebar-hover: #2D4A6F;
+  --bg-top-header: #2C4A7C;
+  --bg-hover: #F0F2F5;
+  
+  /* 边框色 */
+  --border-color: #E5E7EB;
+  --border-light: #F3F4F6;
+  
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+  
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+}
+
+/* 全局重置 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+}
+
+/* 通用卡片样式 */
+.card {
+  background-color: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  padding: var(--spacing-lg);
+  transition: all 0.25s ease;
+}
+
+.card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--spacing-lg);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 按钮样式 */
+.btn {
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-primary {
+  background-color: var(--primary-color);
+  color: var(--text-white);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  box-shadow: 0 2px 8px rgba(74, 123, 196, 0.3);
+}
+
+.btn-secondary {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+  background-color: var(--primary-light);
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+}
+
+.btn-success {
+  background-color: var(--success-light);
+  color: var(--success-color);
+}
+
+.btn-success:hover {
+  background-color: var(--success-color);
+  color: var(--text-white);
+}
+
+.btn-warning {
+  background-color: var(--warning-light);
+  color: var(--warning-color);
+}
+
+.btn-warning:hover {
+  background-color: var(--warning-color);
+  color: var(--text-white);
+}
+
+.btn-danger {
+  background-color: var(--danger-light);
+  color: var(--danger-color);
+}
+
+.btn-danger:hover {
+  background-color: var(--danger-color);
+  color: var(--text-white);
+}
+
+/* 表单样式 */
+.form-group {
+  margin-bottom: var(--spacing-lg);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--spacing-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.form-input,
+.form-select,
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(74, 123, 196, 0.1);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/* 表格样式 */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.table tr:hover {
+  background-color: var(--primary-light);
+}
+
+/* 标签样式 */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.tag-primary {
+  background-color: var(--primary-light);
+  color: var(--primary-color);
+}
+
+.tag-success {
+  background-color: var(--success-light);
+  color: var(--success-color);
+}
+
+.tag-warning {
+  background-color: var(--warning-light);
+  color: var(--warning-color);
+}
+
+.tag-info {
+  background-color: var(--info-light);
+  color: var(--info-color);
+}
+
+.tag-danger {
+  background-color: var(--danger-light);
+  color: var(--danger-color);
+}
+
+/* 布局容器 */
+.page-container {
+  min-height: 100vh;
+  background-color: var(--bg-page);
+}
+
+.content-wrapper {
+  padding: var(--spacing-xl);
+}
+
+/* 教师后台侧边栏样式 */
+.teacher-sidebar {
+  width: 240px;
+  background: linear-gradient(180deg, var(--bg-sidebar) 0%, #162D4A 100%);
+  color: var(--text-white);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 100;
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+}
+
+.teacher-sidebar-header {
+  padding: var(--spacing-lg);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(74, 123, 196, 0.15) 0%, transparent 100%);
+}
+
+.teacher-sidebar-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.teacher-sidebar-logo svg {
+  width: 32px;
+  height: 32px;
+  color: #7BB3E8;
+}
+
+.teacher-sidebar-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-white);
+}
+
+.teacher-sidebar-nav {
+  flex: 1;
+  padding: var(--spacing-md) 0;
+}
+
+.teacher-sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  margin: 4px 8px;
+  color: #A0B8D5;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: all 0.2s ease;
+}
+
+.teacher-sidebar-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-white);
+}
+
+.teacher-sidebar-item.active {
+  background-color: rgba(74, 123, 196, 0.25);
+  color: var(--text-white);
+  border-left: 3px solid var(--primary-color);
+}
+
+.teacher-sidebar-item svg {
+  width: 20px;
+  height: 20px;
+}
+
+.teacher-sidebar-footer {
+  padding: var(--spacing-md);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.teacher-sidebar-logout {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: rgba(245, 101, 101, 0.12);
+  color: #F87171;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.teacher-sidebar-logout:hover {
+  background-color: rgba(245, 101, 101, 0.2);
+}
+
+.teacher-sidebar-logout svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* 教师顶部导航 */
+.teacher-top-header {
+  background: linear-gradient(135deg, var(--bg-top-header) 0%, #3A5A8C 100%);
+  padding: 16px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.teacher-top-header h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-white);
+}
+
+.teacher-top-header .user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  background-color: rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius-md);
+}
+
+.teacher-top-header .user-info svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .teacher-sidebar {
+    width: 60px;
+  }
+  
+  .teacher-sidebar-title,
+  .teacher-sidebar-item span,
+  .teacher-sidebar-logout span {
+    display: none;
+  }
+  
+  .teacher-sidebar-item {
+    justify-content: center;
+    padding: 10px;
+  }
+  
+  .content-wrapper {
+    padding: var(--spacing-lg);
+  }
+}
