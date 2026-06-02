@@ -33,6 +33,14 @@ def login_api(request):
         is_student = StudentProfile.objects.filter(user=user).exists()
         is_teacher = TeacherProfile.objects.filter(user=user).exists()
         
+        if role == 'student' and not is_student:
+            StudentProfile.objects.create(user=user)
+            is_student = True
+        
+        if role == 'teacher' and not is_teacher:
+            TeacherProfile.objects.create(user=user)
+            is_teacher = True
+        
         if is_student and role == 'student':
             user_role = 'student'
         elif is_teacher and role == 'teacher':
@@ -85,5 +93,5 @@ def change_password_api(request):
     
     request.user.set_password(new_password)
     request.user.save()
-    
+
     return JsonResponse({'success': True, 'message': '密码修改成功'})

@@ -2,9 +2,10 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from django.db import transaction
 from django.db.models import Count, Sum
 from exams.models import Exam, ExamQuestion
-from .models import Question
+from teachers.models import Question, TeacherProfile
 from students.models import StudentExamRecord, StudentProfile
 from django.contrib.auth.models import User
 from students.api_views import is_answer_correct, get_exam_questions, get_options_dict_from_question
@@ -842,12 +843,11 @@ def delete_exam_api(request, exam_id):
     except Exam.DoesNotExist:
         return JsonResponse({'error': 'Exam not found'}, status=404)
     
-    # 安全保护：只允许删除草稿状态的考试
-    if exam.status != 'draft':
+    # 安全保护：只允许删除草稿状态的考试（未发布 且 尚未结束）
+    if exam.is_published:
         return JsonResponse({
             'error': '只能删除草稿状态的考试',
             'detail': '已发布的考试请先取消发布后再删除',
-            'exam_status': exam.status
         }, status=400)
     
     student_count = StudentExamRecord.objects.filter(exam=exam).count()
@@ -871,7 +871,7 @@ def exam_students_api(request, exam_id):
     except Exam.DoesNotExist:
         return JsonResponse({'error': 'Exam not found'}, status=404)
     
-    records = StudentExamRecord.objects.filter(exam=exam).select_related('student')
+    records = StudentExamRecord.objects.filter(exam=exam, student__is_superuser=False).select_related('student')
     
     students_data = []
     for record in records:
@@ -1168,11 +1168,10 @@ def import_questions_api(request):
 
 
 @login_required
-@csrf_exempt
 def teacher_students_api(request):
     teacher = request.user
     
-    students = StudentProfile.objects.filter(teacher=teacher)
+    students = StudentProfile.objects.filter(teacher=teacher, user__is_superuser=False)
     
     students_data = []
     for student in students:
@@ -1195,6 +1194,48 @@ def teacher_students_api(request):
         })
     
     return JsonResponse(students_data, safe=False)
+
+
+@login_required
+def student_exams_api(request, student_id):
+    teacher = request.user
+    try:
+        student = StudentProfile.objects.get(id=student_id, teacher=teacher)
+    except StudentProfile.DoesNotExist:
+        return JsonResponse({'error': 'Student not found'}, status=404)
+
+    records = StudentExamRecord.objects.filter(
+        student=student.user,
+        exam__created_by=teacher,
+        is_finished=True
+    ).select_related('exam').order_by('-submit_time')
+
+    exams_data = []
+    for record in records:
+        is_graded = record.score is not None
+        if record.is_finished:
+            if is_graded:
+                status = 'graded'
+            else:
+                status = 'finished'
+        else:
+            status = 'ongoing'
+        exams_data.append({
+            'record_id': record.id,
+            'exam_id': record.exam.id,
+            'title': record.exam.title,
+            'total_score': record.exam.total_score,
+            'score': record.score or 0,
+            'status': status,
+            'is_graded': is_graded,
+            'submit_time': record.submit_time.strftime('%Y-%m-%d %H:%M') if record.submit_time else None,
+        })
+
+    return JsonResponse({
+        'student_name': student.user.username,
+        'student_id': student.student_id,
+        'exams': exams_data,
+    })
 
 
 @login_required
@@ -1271,4 +1312,85 @@ def exam_result_api(request, record_id):
             'auto_score': auto_score,
         },
         'questions': question_results,
+    })
+
+@login_required
+def profile_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+
+    teacher = request.user
+    try:
+        profile = TeacherProfile.objects.get(user=teacher)
+        profile_data = {
+            'username': teacher.username,
+            'email': teacher.email,
+            'teacher_id': profile.teacher_id,
+            'department': profile.department,
+            'title': profile.get_title_display() if profile.title else '',
+            'phone': profile.phone,
+            'office': profile.office,
+            'avatar': request.build_absolute_uri(profile.avatar.url) if profile.avatar else None,
+        }
+    except TeacherProfile.DoesNotExist:
+        profile_data = {
+            'username': teacher.username,
+            'email': teacher.email,
+            'teacher_id': '',
+            'department': '',
+            'title': '',
+            'phone': '',
+            'office': '',
+            'avatar': None,
+        }
+
+    return JsonResponse({'profile': profile_data})
+
+
+@login_required
+@csrf_exempt
+def avatar_upload_api(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized'}, status=401)
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+    profile, created = TeacherProfile.objects.get_or_create(user=request.user)
+    if 'avatar' in request.FILES:
+        profile.avatar = request.FILES['avatar']
+        profile.save()
+        return JsonResponse({
+            'status': 'success',
+            'avatar_url': request.build_absolute_uri(profile.avatar.url),
+        })
+    return JsonResponse({'error': 'No image file provided'}, status=400)
+
+
+@login_required
+@csrf_exempt
+def reset_exam_record_api(request, record_id):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+    try:
+        record = StudentExamRecord.objects.select_related('exam').get(
+            id=record_id, exam__created_by=request.user
+        )
+    except StudentExamRecord.DoesNotExist:
+        return JsonResponse({'error': 'Record not found'}, status=404)
+
+    with transaction.atomic():
+        record.is_finished = False
+        record.answers = {}
+        record.score = None
+        record.submit_time = None
+        record.time_spent = 0
+        record.teacher_comments = ''
+        record.reviewed_at = None
+        record.reviewed_by = None
+        record.start_time = None
+        record.save()
+
+    return JsonResponse({
+        'status': 'success',
+        'message': '考试记录已重置，学生可以重新考试',
     })

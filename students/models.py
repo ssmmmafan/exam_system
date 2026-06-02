@@ -45,7 +45,7 @@ class StudentExamRecord(models.Model):
     """学生考试记录"""
     student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='student_exams')
     exam = models.ForeignKey(Exam, on_delete=models.CASCADE, related_name='student_records')
-    start_time = models.DateTimeField('开始时间', auto_now_add=True)
+    start_time = models.DateTimeField('开始时间', null=True, blank=True)
     submit_time = models.DateTimeField('提交时间', null=True, blank=True)
     answers = models.JSONField('答案', default=dict)
     score = models.FloatField('得分', null=True, blank=True)

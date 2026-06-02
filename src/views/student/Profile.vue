@@ -110,9 +110,29 @@
                 <h4>修改密码</h4>
                 <p>定期修改密码可以提高账号安全性</p>
               </div>
-              <button @click="changePassword" class="btn btn-secondary">
-                修改密码
+              <button @click="showPasswordForm = !showPasswordForm" class="btn btn-secondary">
+                {{ showPasswordForm ? '取消' : '修改密码' }}
               </button>
+            </div>
+            <div v-if="showPasswordForm" class="password-form">
+              <div class="form-group">
+                <label class="form-label">当前密码</label>
+                <input type="password" v-model="passwordForm.old_password" class="form-input" placeholder="请输入当前密码" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">新密码</label>
+                <input type="password" v-model="passwordForm.new_password" class="form-input" placeholder="请输入新密码（至少6个字符）" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">确认新密码</label>
+                <input type="password" v-model="passwordForm.confirm_password" class="form-input" placeholder="请再次输入新密码" />
+              </div>
+              <div v-if="passwordError" class="form-error">{{ passwordError }}</div>
+              <div class="form-actions">
+                <button class="btn btn-primary" :disabled="passwordSubmitting" @click="submitPasswordChange">
+                  {{ passwordSubmitting ? '提交中...' : '确认修改' }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -151,6 +171,15 @@ const formData = ref({
   major: '',
   enrollment_year: '',
   phone: ''
+})
+
+const showPasswordForm = ref(false)
+const passwordSubmitting = ref(false)
+const passwordError = ref('')
+const passwordForm = ref({
+  old_password: '',
+  new_password: '',
+  confirm_password: ''
 })
 
 const userInitial = computed(() => {
@@ -251,30 +280,38 @@ const saveProfile = async () => {
   }
 }
 
-const changePassword = async () => {
-  const old_password = prompt('请输入当前密码：')
-  if (!old_password) return
-  
-  const new_password = prompt('请输入新密码（至少6个字符）：')
-  if (!new_password || new_password.length < 6) {
-    alert('新密码至少需要6个字符')
-    return
-  }
-  
-  const confirm_password = prompt('请再次输入新密码：')
-  if (new_password !== confirm_password) {
-    alert('两次输入的密码不一致')
-    return
-  }
-  
-  if (!confirm('确认要修改密码吗？')) return
+const submitPasswordChange = async () => {
+  passwordError.value = ''
+  const { old_password, new_password, confirm_password } = passwordForm.value
 
+  if (!old_password) {
+    passwordError.value = '请输入当前密码'
+    return
+  }
+  if (!new_password || new_password.length < 6) {
+    passwordError.value = '新密码至少需要6个字符'
+    return
+  }
+  if (new_password !== confirm_password) {
+    passwordError.value = '两次输入的密码不一致'
+    return
+  }
+
+  if (!confirm('确定要修改密码吗？')) return
+
+  passwordSubmitting.value = true
   try {
     await api.post('login/change-password/', { old_password, new_password, confirm_password })
-    alert('密码修改成功')
+    alert('密码修改成功，请重新登录')
+    localStorage.removeItem('user')
+    localStorage.removeItem('token')
+    localStorage.removeItem('avatar_url')
+    window.location.href = '/login'
   } catch (error) {
     console.error('Failed to change password:', error)
-    alert('密码修改失败，可能是原密码不正确')
+    passwordError.value = '密码修改失败，可能是原密码不正确'
+  } finally {
+    passwordSubmitting.value = false
   }
 }
 </script>
@@ -544,6 +581,7 @@ const changePassword = async () => {
   justify-content: space-between;
   align-items: center;
   padding: 20px 24px;
+  flex-wrap: wrap;
 }
 
 .security-info h4 {
@@ -557,6 +595,59 @@ const changePassword = async () => {
   margin: 0;
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.password-form {
+  width: 100%;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.password-form .form-group {
+  margin-bottom: 16px;
+}
+
+.password-form .form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.password-form .form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.password-form .form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(74, 123, 196, 0.1);
+}
+
+.form-error {
+  color: var(--danger-color);
+  font-size: 13px;
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background-color: var(--danger-light);
+  border-radius: 8px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
 }
 
 @media (max-width: 768px) {

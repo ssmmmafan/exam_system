@@ -50,6 +50,13 @@
                 >
                   查看批改
                 </button>
+                <button 
+                  v-if="student.is_finished" 
+                  @click="resetExam(student)" 
+                  class="btn btn-danger-outline btn-sm"
+                >
+                  重置
+                </button>
               </td>
             </tr>
           </tbody>
@@ -103,6 +110,22 @@ const getStatusText = (student) => {
 
 const goToGrade = (recordId) => {
   window.location.href = `/teacher/grade/${recordId}`
+}
+
+const resetExam = async (student) => {
+  if (!confirm(`确定要重置「${student.student_name}」的考试记录吗？\n重置后该学生可以重新参加考试。`)) {
+    return
+  }
+  try {
+    await api.post(`teacher/record/${student.record_id}/reset/`)
+    alert('考试记录已重置')
+    student.is_finished = false
+    student.is_graded = false
+    student.score = null
+    student.submit_time = null
+  } catch (error) {
+    alert('重置失败，请重试')
+  }
 }
 </script>
 
@@ -162,6 +185,18 @@ const goToGrade = (recordId) => {
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.8rem;
+}
+
+.btn-danger-outline {
+  background: transparent;
+  color: #dc3545;
+  border: 1px solid #dc3545;
+  margin-left: 4px;
+}
+
+.btn-danger-outline:hover {
+  background: #dc3545;
+  color: white;
 }
 
 .exam-info {

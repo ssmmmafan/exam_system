@@ -313,7 +313,7 @@ const unpublishExam = async () => {
 const deleteExam = async () => {
   if (!confirm('确定要删除这个考试吗？')) return
   try {
-    await api.delete(`teacher/exams/${exam.value.id}/`)
+    await api.delete(`teacher/exams/${exam.value.id}/delete/`)
     router.push('/teacher/exams')
   } catch (error) {
     console.error('Failed to delete exam:', error)

@@ -9,16 +9,19 @@
         <div class="profile-card">
           <div class="profile-header">
             <div class="avatar-container">
-              <div class="avatar" :style="{ background: avatarGradient }">
+              <div v-if="profile.avatar" class="avatar" style="overflow: hidden;">
+                <img :src="profile.avatar" style="width:100%;height:100%;object-fit:cover;" />
+              </div>
+              <div v-else class="avatar" :style="{ background: avatarGradient }">
                 {{ userInitial }}
               </div>
-              <button @click="showChangeAvatar = true" class="change-avatar-btn">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                  <circle cx="12" cy="7" r="4"/>
-                  <path d="M16 11.37A4 4 0 0 1 12 17v1a4 4 0 0 0 4-4v-1.63"/>
+              <button @click="triggerAvatarUpload" class="change-avatar-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
                 </svg>
               </button>
+              <input type="file" ref="fileInput" accept="image/*" style="display:none" @change="uploadAvatar" />
             </div>
             <div class="user-info">
               <h2>{{ profile.username }}</h2>
@@ -56,9 +59,29 @@
                 <h4>修改密码</h4>
                 <p>定期修改密码可以提高账号安全性</p>
               </div>
-              <button @click="changePassword" class="btn btn-secondary">
-                修改密码
+              <button @click="showPasswordForm = !showPasswordForm" class="btn btn-secondary">
+                {{ showPasswordForm ? '取消' : '修改密码' }}
               </button>
+            </div>
+            <div v-if="showPasswordForm" class="password-form">
+              <div class="form-group">
+                <label class="form-label">当前密码</label>
+                <input type="password" v-model="passwordForm.old_password" class="form-input" placeholder="请输入当前密码" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">新密码</label>
+                <input type="password" v-model="passwordForm.new_password" class="form-input" placeholder="请输入新密码（至少6个字符）" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">确认新密码</label>
+                <input type="password" v-model="passwordForm.confirm_password" class="form-input" placeholder="请再次输入新密码" />
+              </div>
+              <div v-if="passwordError" class="form-error">{{ passwordError }}</div>
+              <div class="form-actions">
+                <button class="btn btn-primary" :disabled="passwordSubmitting" @click="submitPasswordChange">
+                  {{ passwordSubmitting ? '提交中...' : '确认修改' }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -79,10 +102,22 @@ const profile = ref({
   username: '',
   email: '',
   phone: '',
-  department: ''
+  department: '',
+  avatar: ''
 })
 
 const showChangeAvatar = ref(false)
+const uploading = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+
+const showPasswordForm = ref(false)
+const passwordSubmitting = ref(false)
+const passwordError = ref('')
+const passwordForm = ref({
+  old_password: '',
+  new_password: '',
+  confirm_password: ''
+})
 
 const userInitial = computed(() => profile.value.username.charAt(0).toUpperCase())
 
@@ -112,39 +147,76 @@ const fetchProfile = async () => {
     const response = await api.get('teacher/profile/')
     if (response.data.profile) {
       profile.value = { ...profile.value, ...response.data.profile }
+      if (response.data.profile.avatar) {
+        localStorage.setItem('avatar_url', response.data.profile.avatar)
+      }
     }
   } catch (error) {
     console.error('Failed to fetch profile:', error)
   }
 }
 
-const changePassword = async () => {
-  const old_password = prompt('请输入当前密码：')
-  if (!old_password) return
-  
-  const new_password = prompt('请输入新密码（至少6个字符）：')
-  if (!new_password || new_password.length < 6) {
-    alert('新密码至少需要6个字符')
-    return
-  }
-  
-  const confirm_password = prompt('请再次输入新密码：')
-  if (new_password !== confirm_password) {
-    alert('两次输入的密码不一致')
-    return
-  }
-  
-  if (!confirm('确认要修改密码吗？')) return
+const triggerAvatarUpload = () => {
+  fileInput.value?.click()
+}
 
+const uploadAvatar = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (!input.files?.length) return
+  
+  const file = input.files[0]
+  const formData = new FormData()
+  formData.append('avatar', file)
+  
+  uploading.value = true
+  try {
+    const response = await api.post('teacher/profile/avatar/', formData)
+    if (response.data.avatar_url) {
+      profile.value.avatar = response.data.avatar_url
+      localStorage.setItem('avatar_url', response.data.avatar_url)
+    }
+    alert('头像更新成功')
+  } catch (error) {
+    console.error('Failed to upload avatar:', error)
+    alert('头像上传失败')
+  } finally {
+    uploading.value = false
+    input.value = ''
+  }
+}
+
+const submitPasswordChange = async () => {
+  passwordError.value = ''
+  const { old_password, new_password, confirm_password } = passwordForm.value
+
+  if (!old_password) {
+    passwordError.value = '请输入当前密码'
+    return
+  }
+  if (!new_password || new_password.length < 6) {
+    passwordError.value = '新密码至少需要6个字符'
+    return
+  }
+  if (new_password !== confirm_password) {
+    passwordError.value = '两次输入的密码不一致'
+    return
+  }
+
+  if (!confirm('确定要修改密码吗？')) return
+
+  passwordSubmitting.value = true
   try {
     await api.post('login/change-password/', { old_password, new_password, confirm_password })
     alert('密码修改成功，请重新登录')
     localStorage.removeItem('user')
     localStorage.removeItem('token')
+    localStorage.removeItem('avatar_url')
     window.location.href = '/login'
   } catch (error) {
     console.error('Failed to change password:', error)
-    alert('密码修改失败，可能是原密码不正确')
+    passwordError.value = '密码修改失败，可能是原密码不正确'
+  } finally {
+    passwordSubmitting.value = false
   }
 }
 </script>
@@ -167,6 +239,12 @@ const changePassword = async () => {
 
 .teacher-main-content.sidebar-collapsed {
   margin-left: 64px;
+}
+
+.teacher-top-header .btn svg {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
 }
 
 .content-wrapper {
@@ -288,6 +366,7 @@ const changePassword = async () => {
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-lg);
+  flex-wrap: wrap;
 }
 
 .security-info h4 {
@@ -303,6 +382,59 @@ const changePassword = async () => {
   color: var(--text-secondary);
 }
 
+.password-form {
+  width: 100%;
+  margin-top: var(--spacing-lg);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--border-color);
+}
+
+.password-form .form-group {
+  margin-bottom: var(--spacing-md);
+}
+
+.password-form .form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.password-form .form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.password-form .form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(74, 123, 196, 0.1);
+}
+
+.form-error {
+  color: var(--danger-color);
+  font-size: 13px;
+  margin-bottom: var(--spacing-md);
+  padding: 8px 12px;
+  background-color: var(--danger-light);
+  border-radius: var(--radius-md);
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-lg);
+}
+
 .btn {
   padding: 10px 20px;
   border-radius: var(--radius-md);
@@ -313,12 +445,17 @@ const changePassword = async () => {
   border: none;
 }
 
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .btn-primary {
   background: linear-gradient(135deg, var(--primary-color) 0%, #3A6BB4 100%);
   color: white;
 }
 
-.btn-primary:hover {
+.btn-primary:hover:not(:disabled) {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }

@@ -2,6 +2,7 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
+from datetime import timedelta
 from exams.models import Exam, ExamQuestion
 from teachers.models import Question
 from students.models import StudentExamRecord, StudentProfile
@@ -212,7 +213,7 @@ def exam_detail_api(request, exam_id):
     if not request.user.is_authenticated:
         return JsonResponse({'error': 'Unauthorized'}, status=401)
     try:
-        exam = Exam.objects.get(id=exam_id, is_published=True)
+        exam = Exam.objects.get(id=exam_id)
     except Exam.DoesNotExist:
         return JsonResponse({'error': 'Exam not found'}, status=404)
     
@@ -220,13 +221,23 @@ def exam_detail_api(request, exam_id):
         record = StudentExamRecord.objects.get(student=request.user, exam=exam)
         has_taken = record.is_finished
         record_score = record.score if record.is_finished else None
-        record_id = record.id if record.is_finished else None
+        record_id = record.id
         needs_grading = record.is_finished and record.reviewed_at is None
+        now = timezone.now()
+        if record.start_time:
+            record_deadline = record.start_time + timedelta(minutes=exam.duration)
+            record_deadline_str = record_deadline.strftime('%Y-%m-%d %H:%M')
+            record_start_time_str = record.start_time.strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            record_deadline_str = None
+            record_start_time_str = None
     except StudentExamRecord.DoesNotExist:
         has_taken = False
         record_score = None
         record_id = None
         needs_grading = False
+        record_deadline_str = None
+        record_start_time_str = None
     
     eqs = ExamQuestion.objects.filter(exam=exam)
     question_ids = [eq.question_id for eq in eqs]
@@ -259,6 +270,8 @@ def exam_detail_api(request, exam_id):
         'score': record_score,
         'record_id': record_id,
         'needs_grading': needs_grading,
+        'record_start_time': record_start_time_str,
+        'record_deadline': record_deadline_str,
     })
 
 
@@ -268,20 +281,45 @@ def exam_taking_api(request, exam_id):
     try:
         exam = Exam.objects.get(id=exam_id, is_published=True)
     except Exam.DoesNotExist:
-        return JsonResponse({'error': 'Exam not found'}, status=404)
-    
+        try:
+            exam = Exam.objects.get(id=exam_id)
+            record = StudentExamRecord.objects.get(student=request.user, exam=exam)
+            if record.is_finished:
+                return JsonResponse({'error': '已提交', 'record_id': record.id}, status=400)
+            return JsonResponse({'error': '考试已结束'}, status=400)
+        except (Exam.DoesNotExist, StudentExamRecord.DoesNotExist):
+            return JsonResponse({'error': 'Exam not found'}, status=404)
+
     now = timezone.now()
+    if now >= exam.end_time:
+        return JsonResponse({'error': '考试已结束，无法参加'}, status=400)
+
     record, created = StudentExamRecord.objects.get_or_create(
         student=request.user,
         exam=exam,
-        defaults={'answers': {}}
+        defaults={'answers': {}, 'start_time': timezone.now()}
     )
-    
+
+    if record.is_finished:
+        return JsonResponse({
+            'error': '已提交',
+            'record_id': record.id,
+        }, status=400)
+
+    if record.start_time and record.start_time + timedelta(minutes=exam.duration) < now:
+        record.start_time = now
+        record.is_finished = False
+        record.answers = {}
+        record.score = None
+        record.submit_time = None
+        record.time_spent = 0
+        record.save()
+
     questions_data = []
-    
+
     for question, score in get_exam_questions(exam):
         options = get_options_dict_from_question(question)
-        
+
         questions_data.append({
             'id': question.id,
             'type': question.type,
@@ -290,12 +328,18 @@ def exam_taking_api(request, exam_id):
             'score': score,
             'order': ExamQuestion.objects.get(exam=exam, question_id=question.id).order,
         })
-    
-    elapsed_seconds = max(0, (now - exam.start_time).total_seconds())
-    remaining_by_duration = max(0, exam.duration * 60 - elapsed_seconds)
-    remaining_by_end_time = max(0, (exam.end_time - now).total_seconds())
-    remaining_seconds = min(remaining_by_duration, remaining_by_end_time)
-    
+
+    if record.start_time is None:
+        record.start_time = now
+        record.save()
+        remaining_seconds = exam.duration * 60
+    else:
+        deadline = record.start_time + timedelta(minutes=exam.duration)
+        remaining_seconds = max(0, (deadline - now).total_seconds())
+
+    deadline = (record.start_time + timedelta(minutes=exam.duration)) if record.start_time else None
+    deadline_str = deadline.strftime('%Y-%m-%d %H:%M:%S') if deadline else None
+
     return JsonResponse({
         'exam': {
             'id': exam.id,
@@ -307,7 +351,8 @@ def exam_taking_api(request, exam_id):
         'record_id': record.id,
         'answers': record.answers,
         'time_left': int(remaining_seconds),
-        'now': now.strftime('%Y-%m-%d %H:%M:%S'),
+        'start_time': record.start_time.strftime('%Y-%m-%d %H:%M:%S') if record.start_time else None,
+        'deadline': deadline_str,
     })
 
 
@@ -325,18 +370,18 @@ def save_answer_api(request, exam_id):
         return JsonResponse({'error': 'Invalid JSON'}, status=400)
     
     try:
-        exam = Exam.objects.get(id=exam_id, is_published=True)
+        exam = Exam.objects.get(id=exam_id)
     except Exam.DoesNotExist:
         return JsonResponse({'error': 'Exam not found'}, status=404)
     
     record, created = StudentExamRecord.objects.get_or_create(
         student=request.user,
         exam=exam,
-        defaults={'answers': {}}
+        defaults={'answers': {}, 'start_time': timezone.now()}
     )
     
     if record.is_finished:
-        return JsonResponse({'error': 'Exam already submitted'}, status=400)
+        return JsonResponse({'error': '已提交'}, status=400)
     
     record.answers.update(answers)
     record.save()
@@ -352,7 +397,7 @@ def submit_exam_api(request, exam_id):
         return JsonResponse({'error': 'Method not allowed'}, status=405)
     
     try:
-        exam = Exam.objects.get(id=exam_id, is_published=True)
+        exam = Exam.objects.get(id=exam_id)
     except Exam.DoesNotExist:
         return JsonResponse({'error': 'Exam not found'}, status=404)
     

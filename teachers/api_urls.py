@@ -24,5 +24,9 @@ urlpatterns = [
     path('grade/<int:record_id>/submit/', api_views.grade_submit_api, name='grade_submit_api'),
     path('questions/import/', api_views.import_questions_api, name='import_questions_api'),
     path('students/', api_views.teacher_students_api, name='teacher_students_api'),
+    path('students/<int:student_id>/exams/', api_views.student_exams_api, name='student_exams_api'),
     path('result/<int:record_id>/', api_views.exam_result_api, name='exam_result_api'),
+    path('profile/', api_views.profile_api, name='profile_api'),
+    path('profile/avatar/', api_views.avatar_upload_api, name='avatar_upload'),
+    path('record/<int:record_id>/reset/', api_views.reset_exam_record_api, name='reset_exam_record'),
 ]

@@ -4,12 +4,24 @@
       <h2>{{ exam.title }}</h2>
       <div class="exam-info">
         <div class="info-item">
-          <span class="label">开始时间：</span>
+          <span class="label">考试开始时间：</span>
           <span class="value">{{ formatDate(exam.start_time) }}</span>
         </div>
         <div class="info-item">
-          <span class="label">结束时间：</span>
+          <span class="label">考试结束时间：</span>
           <span class="value">{{ formatDate(exam.end_time) }}</span>
+        </div>
+        <div v-if="exam.record_start_time" class="info-item highlight">
+          <span class="label">你的开始时间：</span>
+          <span class="value">{{ formatDate(exam.record_start_time) }}</span>
+        </div>
+        <div v-if="exam.record_deadline" class="info-item highlight">
+          <span class="label">你的截止时间：</span>
+          <span class="value">{{ formatDate(exam.record_deadline) }}</span>
+        </div>
+        <div class="info-item">
+          <span class="label">考试时长：</span>
+          <span class="value">{{ exam.duration }} 分钟</span>
         </div>
         <div class="info-item">
           <span class="label">题目数量：</span>
@@ -50,7 +62,9 @@
         </div>
       </div>
       <div class="actions">
-        <router-link v-if="!exam.has_taken" :to="`/student/exam/${exam.id}/take`" class="btn btn-primary">开始考试</router-link>
+        <router-link v-if="!exam.has_taken && exam.record_id && canStartExam" :to="`/student/exam/${exam.id}/take`" class="btn btn-warning">继续考试</router-link>
+        <router-link v-else-if="!exam.has_taken && canStartExam" :to="`/student/exam/${exam.id}/take`" class="btn btn-primary">开始考试</router-link>
+        <router-link v-else-if="!exam.has_taken && !canStartExam" to="/student/exams" class="btn btn-primary disabled-link">考试已结束</router-link>
         <router-link v-else :to="`/student/result/${exam.record_id}`" class="btn btn-primary">查看成绩</router-link>
         <router-link to="/student/dashboard" class="btn btn-secondary">返回</router-link>
       </div>
@@ -59,13 +73,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '../../utils/api'
 import { formatDate } from '../../utils/formatters'
 
 const route = useRoute()
 const exam = ref({})
+
+const canStartExam = computed(() => {
+  if (!exam.value.end_time) return false
+  const now = new Date()
+  const endTime = new Date(exam.value.end_time)
+  return now < endTime
+})
 
 onMounted(async () => {
   try {
@@ -230,6 +251,14 @@ onMounted(async () => {
   color: white;
 }
 
+.disabled-link {
+  background: #6c757d;
+  color: white;
+  cursor: not-allowed;
+  opacity: 0.7;
+  pointer-events: none;
+}
+
 .btn-score {
   background: #16a34a;
   color: white;
@@ -245,8 +274,19 @@ onMounted(async () => {
   transform: translateY(-1px);
 }
 
+.btn-warning {
+  background: #ffc107;
+  color: #212529;
+}
+
 .btn-secondary {
   background: #6c757d;
   color: white;
+}
+
+.info-item.highlight {
+  background: #fffbe6;
+  border-left: 3px solid #ffc107;
+  padding-left: 12px;
 }
 </style>

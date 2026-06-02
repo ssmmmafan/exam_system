@@ -58,7 +58,125 @@
 
 ## 快速启动
 
-### 方式一：开发模式（前后端分离，推荐）
+### 📦 方式一：Docker Compose 部署（推荐，一键启动）
+
+> 无需手动安装 Python/Node.js/MySQL，一条命令启动全部服务。
+
+#### 一、首次部署
+
+```bash
+# 1. 进入项目目录
+cd exam_system
+
+# 2. 一键启动所有服务（后台运行）
+docker-compose up -d
+
+# 3. 查看运行状态
+docker-compose ps
+
+# 4. 初始化数据库
+docker-compose exec web python manage.py migrate
+
+# 5. 创建超级管理员
+docker-compose exec web python manage.py createsuperuser
+
+# 6. 收集静态文件
+docker-compose exec web python manage.py collectstatic --noinput
+```
+
+> **提示**：后续如果修改了模型（新增字段等），只需重新运行 `docker-compose exec web python manage.py migrate` 即可，无需重建容器。
+
+#### 二、日常启动与停止
+
+```bash
+# 启动所有服务（后台运行）
+docker-compose up -d
+
+# 启动所有服务（前台运行，按 Ctrl+C 停止）
+docker-compose up
+
+# 启动单个服务（如 web 后端）
+docker-compose up -d web
+
+# 停止所有服务（保留数据库数据）
+docker-compose down
+
+# 停止所有服务并删除数据卷（清空数据库和上传文件）
+docker-compose down -v
+
+# 停止单个服务
+docker-compose stop web
+```
+
+#### 三、重启服务
+
+```bash
+# 重启所有服务
+docker-compose restart
+
+# 重启单个服务
+docker-compose restart web
+docker-compose restart frontend
+docker-compose restart nginx
+```
+
+#### 四、查看状态与日志
+
+```bash
+# 查看各服务运行状态
+docker-compose ps
+
+# 实时查看后端日志（按 Ctrl+C 退出）
+docker-compose logs -f web
+
+# 查看前端日志
+docker-compose logs -f frontend
+
+# 查看最近 50 行日志
+docker-compose logs --tail=50 web
+```
+
+#### 五、重新构建
+
+```bash
+# 重新构建后端镜像（修改依赖或 Dockerfile 后需要）
+docker-compose build --no-cache web
+
+# 重新构建并启动
+docker-compose up -d --build web
+```
+
+#### 六、容器内部操作
+
+```bash
+# 进入后端容器（Shell 环境）
+docker-compose exec web bash
+
+# 进入数据库容器
+docker-compose exec db bash
+
+# 在容器内执行 Django 命令
+docker-compose exec web python manage.py createsuperuser
+docker-compose exec web python manage.py makemigrations
+docker-compose exec web python manage.py migrate
+
+# 检查数据库连接
+docker-compose exec db mysql -uroot -pzxcvbnm134 exam_system_db
+```
+
+#### Docker 访问地址
+
+| 服务 | 地址 |
+|------|------|
+| 📄 前端页面 | http://localhost |
+| ⚙️ Django Admin | http://localhost/admin/ |
+| 🔗 API 接口 | http://localhost/api/ |
+
+---
+
+### 💻 方式二：开发模式（前后端分离）
+
+> 需要本地安装 Python 3.12+、Node.js 18+、MySQL 8.0+。
 
 #### 1. 配置数据库
 
@@ -108,61 +226,13 @@ npm run dev
 
 | 服务 | 地址 |
 |------|------|
-| 前端页面 | http://localhost:5173 |
-| Django API | http://localhost:8000 |
-| Django Admin | http://localhost:8000/admin/ |
+| 📄 前端页面 | http://localhost:5173 |
+| ⚙️ Django Admin | http://localhost:8000/admin/ |
+| 🔗 API 接口 | http://localhost:8000 |
 
 ---
 
-### 方式二：Docker Compose 部署（一键启动）
-
-```bash
-# 1. 进入项目目录
-cd exam_system
-
-# 2. 启动所有服务
-docker-compose up -d
-
-# 3. 查看运行状态
-docker-compose ps
-
-# 4. 初始化数据库（首次运行）
-docker-compose exec web python manage.py migrate
-
-# 5. 创建超级管理员
-docker-compose exec web python manage.py createsuperuser
-
-# 6. 收集静态文件
-docker-compose exec web python manage.py collectstatic --noinput
-```
-
-访问地址：
-- 前端页面：http://localhost:5173
-- Django Admin：http://localhost （通过 Nginx 反向代理）
-- API 接口：http://localhost/api/
-
-Docker 常用命令：
-```bash
-# 停止服务
-docker-compose down
-
-# 停止并删除数据卷（清空数据库）
-docker-compose down -v
-
-# 查看日志
-docker-compose logs -f web
-docker-compose logs -f frontend
-
-# 重启某个服务
-docker-compose restart web
-
-# 重新构建
-docker-compose build --no-cache web
-```
-
----
-
-### 方式三：生产模式构建
+### 🚀 方式三：生产模式构建
 
 ```bash
 # 1. 构建前端
@@ -398,6 +468,25 @@ docker-compose exec web bash
 # 检查数据库连接
 docker-compose exec db mysql -uroot -pzxcvbnm134 exam_system_db
 ```
+
+---
+
+## 生成公网访问地址（Serveo）
+
+使用 Serveo SSH 隧道将本地服务暴露到公网，方便演示或移动端测试：
+
+```bash
+# 将 Django 后端（8000 端口）暴露到公网
+ssh -R 80:localhost:8000 serveo.net
+
+# 或使用自定义子域名
+ssh -R myexam:80:localhost:8000 serveo.net
+
+# 同时暴露 Django 后端和前端
+ssh -R 80:localhost:8000 -R 80:localhost:5173 serveo.net
+```
+
+执行后会生成一个 `https://xxx.serveo.net` 格式的公网地址，通过该地址即可从外部访问系统。
 
 ---
 

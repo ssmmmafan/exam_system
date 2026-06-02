@@ -30,6 +30,7 @@ class TeacherProfile(models.Model):
     ])
     phone = models.CharField('电话', max_length=11, blank=True)
     office = models.CharField('办公室', max_length=100, blank=True)
+    avatar = models.ImageField('头像', upload_to='avatars/', blank=True, null=True)
 
     class Meta:
         db_table = 'teacher_profile'

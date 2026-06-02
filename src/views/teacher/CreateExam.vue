@@ -267,7 +267,7 @@ const truncateText = (text: string, maxLength: number) => {
 const loadQuestions = async () => {
   try {
     console.log('Loading questions...')
-    const response = await api.get('teacher/questions/')
+    const response = await api.get('teacher/questions/', { params: { per_page: 1000 } })
     console.log('Questions response:', response.data)
     const data = response.data
     questions.value = data && Array.isArray(data.questions) ? data.questions : []
@@ -330,7 +330,7 @@ const createExam = async () => {
       question_scores: questionScores
     }
     
-    await api.post('teacher/exams/', data)
+    await api.post('teacher/exams/create/', data)
     alert('考试创建成功！')
     router.push('/teacher/exams')
   } catch (error) {

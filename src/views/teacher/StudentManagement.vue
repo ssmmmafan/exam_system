@@ -110,12 +110,12 @@
                     </span>
                   </td>
                   <td>
-                    <button class="btn btn-secondary" @click="viewStudent(student)">
+                    <button class="btn btn-secondary" @click="viewStudentExams(student)">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
                         <circle cx="12" cy="12" r="3"/>
                       </svg>
-                      <span>查看</span>
+                      <span>查看考试</span>
                     </button>
                   </td>
                 </tr>
@@ -125,84 +125,21 @@
         </div>
       </div>
     </div>
-    <div v-if="selectedStudent" class="modal-overlay" @click.self="selectedStudent = null">
-      <div class="modal">
-        <div class="modal-header">
-          <h3>{{ selectedStudent.name }} 的详情</h3>
-          <button class="modal-close" @click="selectedStudent = null">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-        </div>
-        <div class="modal-body">
-          <div class="detail-grid">
-            <div class="detail-item">
-              <span class="detail-label">学号</span>
-              <span class="detail-value">{{ selectedStudent.student_id }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">姓名</span>
-              <span class="detail-value">{{ selectedStudent.name }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">班级</span>
-              <span class="detail-value">{{ selectedStudent.class_name || '未分配' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">邮箱</span>
-              <span class="detail-value">{{ selectedStudent.email || '-' }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">注册时间</span>
-              <span class="detail-value">{{ formatDate(selectedStudent.created_at) }}</span>
-            </div>
-            <div class="detail-item">
-              <span class="detail-label">考试次数</span>
-              <span class="detail-value">{{ selectedStudent.exam_count }} 次</span>
-            </div>
-          </div>
-          <div class="exam-history">
-            <h4 class="exam-history-title">考试记录</h4>
-            <div v-if="!selectedStudent.exams || selectedStudent.exams.length === 0" class="empty-history">
-              <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <path d="M14 2v6h6"/>
-              </svg>
-              <p>暂无考试记录</p>
-            </div>
-            <div v-else class="exam-list">
-              <div v-for="exam in selectedStudent.exams" :key="exam.id" class="exam-history-item">
-                <div class="exam-info">
-                  <h5>{{ exam.title }}</h5>
-                  <p>{{ formatDate(exam.taken_at) }}</p>
-                </div>
-                <div class="exam-score">
-                  <span :class="{ passed: exam.score >= exam.total_score * 0.6 }">
-                    {{ exam.score }} / {{ exam.total_score }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, inject } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../../utils/api'
 import TeacherSidebar from '../../components/TeacherSidebar.vue'
 
+const router = useRouter()
 const sidebarCollapsed = inject('sidebarCollapsed', ref(false))
 const toggleSidebar = inject('toggleSidebar', () => {})
 const students = ref([])
 const searchQuery = ref('')
 const showImportModal = ref(false)
-const selectedStudent = ref(null)
 
 const filteredStudents = computed(() => {
   return students.value.filter(s => 
@@ -242,8 +179,8 @@ const loadStudents = async () => {
   }
 }
 
-const viewStudent = (student) => {
-  selectedStudent.value = student
+const viewStudentExams = (student) => {
+  router.push(`/teacher/student/${student.id}/exams`)
 }
 
 onMounted(() => {

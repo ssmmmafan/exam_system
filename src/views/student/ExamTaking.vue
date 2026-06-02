@@ -14,7 +14,38 @@
     <div class="progress-bar">
       <div class="progress-fill" :style="{ width: progressPercent + '%' }"></div>
     </div>
-    <div class="content">
+    <div v-if="showInstructions" class="instructions-overlay">
+      <div class="instructions-card">
+        <h2>{{ exam.title }}</h2>
+        <div class="instructions-body">
+          <div class="instruction-row">
+            <span class="instruction-label">考试时长</span>
+            <span class="instruction-value">{{ exam.duration }} 分钟</span>
+          </div>
+          <div class="instruction-row">
+            <span class="instruction-label">总分</span>
+            <span class="instruction-value">{{ exam.total_score }} 分</span>
+          </div>
+          <div class="instruction-row">
+            <span class="instruction-label">题目数量</span>
+            <span class="instruction-value">{{ questions.length }} 题</span>
+          </div>
+          <div class="instruction-divider"></div>
+          <div class="instruction-notice">
+            <p><strong>考试须知：</strong></p>
+            <ol>
+              <li>请确保网络连接稳定，答题过程中请勿刷新页面</li>
+              <li>考试倒计时从进入本页面开始计算，请合理安排时间</li>
+              <li>倒计时结束后系统将自动提交试卷</li>
+              <li>提交试卷后无法修改答案，请确认无误后再提交</li>
+              <li>退出考试后系统将继续计时，时间结束后自动提交</li>
+            </ol>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-start" @click="startExam">开始答题</button>
+      </div>
+    </div>
+    <div v-else class="content">
       <div class="question-nav">
         <div 
           v-for="(q, index) in questions" 
@@ -99,10 +130,6 @@
           class="btn btn-success" 
           @click="confirmSubmit"
         >提交试卷</button>
-        <button 
-          class="btn btn-warning" 
-          @click="confirmSubmit"
-        >提前交卷</button>
       </div>
     </div>
   </div>
@@ -120,6 +147,7 @@ const questions = ref([])
 const currentIndex = ref(0)
 const answers = ref({})
 const timeLeft = ref(0)
+const showInstructions = ref(true)
 let timerInterval = null
 
 const currentQuestion = computed(() => questions.value[currentIndex.value])
@@ -193,6 +221,10 @@ const confirmExit = () => {
   }
 }
 
+const startExam = () => {
+  showInstructions.value = false
+}
+
 const confirmSubmit = () => {
   if (confirm('确定要提交试卷吗？提交后将无法修改答案。')) {
     submitExam()
@@ -206,7 +238,7 @@ const submitExam = async () => {
   try {
     const response = await api.post(`student/exam/${route.params.examId}/submit/`, { answers: answers.value })
     alert('提交成功！')
-    window.location.href = `/student/result/${response.data.record_id}`
+    window.location.replace(`/student/result/${response.data.record_id}`)
   } catch (error) {
     console.error('Submit failed:', error)
     alert('提交失败，请重试')
@@ -229,6 +261,10 @@ onMounted(async () => {
       }
     }, 1000)
   } catch (error) {
+    if (error.response?.data?.error === '已提交') {
+      window.location.replace(`/student/result/${error.response.data.record_id}`)
+      return
+    }
     console.error('Failed to load exam:', error)
   }
 })
@@ -295,6 +331,88 @@ onUnmounted(() => {
   height: 100%;
   background: #0d6efd;
   transition: width 0.3s;
+}
+
+.instructions-overlay {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 3rem 1rem;
+  min-height: calc(100vh - 80px);
+  background: #f0f2f5;
+}
+
+.instructions-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  padding: 2.5rem;
+  max-width: 600px;
+  width: 100%;
+}
+
+.instructions-card h2 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.5rem;
+  color: #1a1a2e;
+  text-align: center;
+}
+
+.instructions-body {
+  margin-bottom: 1.5rem;
+}
+
+.instruction-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 1rem;
+}
+
+.instruction-label {
+  color: #666;
+}
+
+.instruction-value {
+  font-weight: 600;
+  color: #1a1a2e;
+}
+
+.instruction-divider {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 1rem 0;
+}
+
+.instruction-notice {
+  background: #f8f9ff;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+}
+
+.instruction-notice p {
+  margin: 0 0 0.5rem 0;
+  color: #333;
+}
+
+.instruction-notice ol {
+  margin: 0;
+  padding-left: 1.25rem;
+}
+
+.instruction-notice li {
+  margin-bottom: 0.4rem;
+  color: #555;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.btn-start {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .content {
